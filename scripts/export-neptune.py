@@ -23,7 +23,7 @@ try:
     from gremlin_python.driver.driver_remote_connection import DriverRemoteConnection
     from gremlin_python.process.anonymous_traversal import traversal
     from gremlin_python.process.graph_traversal import __
-    from gremlin_python.process.traversal import T
+    from gremlin_python.process.traversal import T  # noqa: F401
 except ImportError:
     print("Error: gremlin-python not installed. Run: pip install gremlin-python")
     sys.exit(1)
@@ -67,7 +67,7 @@ def connect(endpoint: str) -> object:
     return traversal().with_remote(conn), conn
 
 
-def export_graph(g, org_id: str | None = None) -> dict:
+def export_graph(g, org_id: str | None = None, limit: int | None = None) -> dict:
     """Export all vertices and edges to the import format."""
     import time
 
@@ -87,18 +87,22 @@ def export_graph(g, org_id: str | None = None) -> dict:
         print(f"    vertices: {len(raw_vertices)} fetched...", flush=True)
         if len(batch) < batch_size:
             break
+        if limit and len(raw_vertices) >= limit:
+            break
         offset += batch_size
+    if limit:
+        raw_vertices = raw_vertices[:limit]
     print(f"  Total: {len(raw_vertices)} vertices ({time.time() - t0:.1f}s)", flush=True)
 
     vertices = []
     for v in raw_vertices:
         vertex = {
-            "id": str(v[T.id]),
-            "label": str(v[T.label]),
+            "id": str(v["id"]),
+            "label": str(v["label"]),
             "properties": {},
         }
         for key, value in v.items():
-            if key in (T.id, T.label):
+            if key in ("id", "label"):
                 continue
             # Handle list/set values
             if isinstance(value, (list, set)):
@@ -121,26 +125,30 @@ def export_graph(g, org_id: str | None = None) -> dict:
         print(f"    edges: {len(raw_edges)} fetched...", flush=True)
         if len(batch) < batch_size:
             break
+        if limit and len(raw_edges) >= limit:
+            break
         offset += batch_size
+    if limit:
+        raw_edges = raw_edges[:limit]
     print(f"  Total: {len(raw_edges)} edges ({time.time() - t0:.1f}s)", flush=True)
 
     edges = []
     seen_edge_ids = set()
     for e in raw_edges:
-        eid = str(e[T.id])
+        eid = str(e["id"])
         if eid in seen_edge_ids:
             continue  # deduplicate (bothE produces duplicates)
         seen_edge_ids.add(eid)
 
         edge = {
             "id": eid,
-            "label": str(e[T.label]),
+            "label": str(e["label"]),
             "outV": str(e["OUT_V"] if "OUT_V" in e else e.get("outV", "")),
             "inV": str(e["IN_V"] if "IN_V" in e else e.get("inV", "")),
             "properties": {},
         }
         for key, value in e.items():
-            if key in (T.id, T.label, "OUT_V", "IN_V", "outV", "inV"):
+            if key in ("id", "label", "OUT_V", "IN_V", "outV", "inV"):
                 continue
             edge["properties"][key] = value
         edges.append(edge)
@@ -152,6 +160,7 @@ def main():
     parser = argparse.ArgumentParser(description="Export Neptune graph data for neptune-tinker sandbox")
     parser.add_argument("--endpoint", required=True, help="Neptune WebSocket endpoint (wss://... or ws://...)")
     parser.add_argument("--org-id", help="Filter to a specific org ID (multi-tenant label prefix)")
+    parser.add_argument("--limit", type=int, help="Max vertices/edges to export")
     parser.add_argument("--output", "-o", default="neptune-export.json", help="Output JSON file path")
     args = parser.parse_args()
 
@@ -160,7 +169,7 @@ def main():
     print("Connected.", flush=True)
 
     print(f"Exporting graph data{' for org ' + args.org_id if args.org_id else ''}...", flush=True)
-    data = export_graph(g, args.org_id)
+    data = export_graph(g, args.org_id, args.limit)
 
     print(f"Found {len(data['vertices'])} vertices, {len(data['edges'])} edges", flush=True)
 
