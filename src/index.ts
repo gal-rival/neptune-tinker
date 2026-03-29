@@ -160,3 +160,5 @@ export {
 } from "./sandbox.js";
 export type { SandboxOptions } from "./sandbox.js";
 export { createNeptuneTraversal } from "./neptune-traversal.js";
+export { importData, importFile } from "./import.js";
+export type { ImportData, ImportVertex, ImportEdge, ImportOptions } from "./import.js";

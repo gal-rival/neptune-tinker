@@ -24,6 +24,27 @@ function run(cmd, opts = {}) {
   execSync(cmd, { stdio: "inherit", env, ...opts });
 }
 
+async function importCmd() {
+  const file = args[1];
+  if (!file) {
+    console.error("Usage: neptune-tinker import <file.json>");
+    process.exit(1);
+  }
+
+  const { NeptuneSandbox } = await import(join(root, "dist", "index.js"));
+  const { importFile } = await import(join(root, "dist", "import.js"));
+
+  const sandbox = new NeptuneSandbox({ port: port ? Number(port) : undefined });
+  await sandbox.connect();
+
+  try {
+    const result = await importFile(sandbox, file);
+    console.log(`Done: ${result.vertices} vertices, ${result.edges} edges`);
+  } finally {
+    await sandbox.close();
+  }
+}
+
 const commands = {
   start: () => run(compose("up -d --wait")),
   stop: () => run(compose("down")),
@@ -32,6 +53,7 @@ const commands = {
   logs: () => run(compose("logs -f")),
   console: () => run(compose("run --rm gremlin-console")),
   repl: () => run(`node "${join(root, "scripts", "repl.mjs")}"`),
+  import: () => importCmd(),
 };
 
 if (!command || !commands[command]) {
@@ -44,7 +66,8 @@ Commands:
   health    Show sandbox container status
   logs      Tail sandbox logs
   console   Open Gremlin Console (raw Gremlin, auto-connected)
-  repl      Open Node.js REPL with middleware loaded`);
+  repl      Open Node.js REPL with middleware loaded
+  import    Import data from JSON file: neptune-tinker import <file.json>`);
   process.exit(command ? 1 : 0);
 }
 
