@@ -16,3 +16,16 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  gremlin-console:
+    image: ${NEPTUNE_TINKER_IMAGE:-tinkerpop/gremlin-console:3.7.2}
+    container_name: ${NEPTUNE_TINKER_CONTAINER:-neptune-tinker}-console
+    volumes:
+      - ./remote-console.yaml:/opt/gremlin-console/conf/remote.yaml:ro
+    depends_on:
+      gremlin-server:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+    profiles:
+      - console

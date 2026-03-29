@@ -12,7 +12,8 @@
     "sandbox:stop": "docker compose -f scripts/docker-compose.yml down",
     "sandbox:reset": "docker compose -f scripts/docker-compose.yml down && docker compose -f scripts/docker-compose.yml up -d --wait",
     "sandbox:health": "docker compose -f scripts/docker-compose.yml ps",
-    "sandbox:logs": "docker compose -f scripts/docker-compose.yml logs -f"
+    "sandbox:logs": "docker compose -f scripts/docker-compose.yml logs -f",
+    "sandbox:console": "docker compose -f scripts/docker-compose.yml run --rm gremlin-console"
   },
   "dependencies": {
     "gremlin": "^3.7.2"
