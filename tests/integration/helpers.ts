@@ -56,7 +56,7 @@ export async function setupSandbox(
  */
 export async function teardownSandbox(sandbox: NeptuneSandbox): Promise<void> {
   try {
-    await sandbox.g.V().drop().iterate();
+    await sandbox.g.V().drop().toList();
   } catch {
     // Graph may already be empty or connection may be lost — that's fine
   }
@@ -67,5 +67,5 @@ export async function teardownSandbox(sandbox: NeptuneSandbox): Promise<void> {
  * Clear all graph data (useful between tests).
  */
 export async function clearGraph(sandbox: NeptuneSandbox): Promise<void> {
-  await sandbox.g.V().drop().iterate();
+  await sandbox.g.V().drop().toList();
 }

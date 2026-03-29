@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import gremlin from "gremlin";
 import { NeptuneSandbox } from "../../src/index.js";
-import { HIDDEN_LABELS_KEY } from "../../src/multilabel.js";
 import { isDockerAvailable, setupSandbox, teardownSandbox, clearGraph } from "./helpers.js";
 
 const { process: gprocess } = gremlin;
@@ -13,11 +12,11 @@ const { t, cardinality } = gprocess;
 
 const dockerAvailable = await isDockerAvailable();
 
-describe.skipIf(!dockerAvailable)("neptune-traversal (delimiter strategy)", () => {
+describe.skipIf(!dockerAvailable)("neptune-traversal", () => {
   let sandbox: NeptuneSandbox;
 
   beforeAll(async () => {
-    sandbox = await setupSandbox({ multiLabelStrategy: "delimiter" });
+    sandbox = await setupSandbox();
   });
 
   afterAll(async () => {
@@ -189,100 +188,3 @@ describe.skipIf(!dockerAvailable)("neptune-traversal (delimiter strategy)", () =
   });
 });
 
-// ===========================================================================
-// Property strategy tests
-// ===========================================================================
-
-describe.skipIf(!dockerAvailable)("neptune-traversal (property strategy)", () => {
-  let sandbox: NeptuneSandbox;
-
-  beforeAll(async () => {
-    sandbox = await setupSandbox({ multiLabelStrategy: "property" });
-  });
-
-  afterAll(async () => {
-    if (sandbox) await teardownSandbox(sandbox);
-  });
-
-  beforeEach(async () => {
-    await clearGraph(sandbox);
-  });
-
-  describe("addV with property strategy", () => {
-    it("creates __labels property for multi-label vertex", async () => {
-      await sandbox.g.addV("Person::Employee").property("name", "Alice").next();
-
-      const labels = await sandbox.g
-        .V()
-        .has(HIDDEN_LABELS_KEY, "Person")
-        .values(HIDDEN_LABELS_KEY)
-        .toList();
-      expect(labels.sort()).toEqual(["Employee", "Person"]);
-    });
-
-    it("does not create __labels for single-label vertex", async () => {
-      await sandbox.g.addV("Robot").property("name", "Bender").next();
-
-      // Single label without :: — addV override only fires when label contains ::
-      const labels = await sandbox.g.V().hasLabel("Robot").values(HIDDEN_LABELS_KEY).toList();
-      expect(labels).toEqual([]);
-    });
-  });
-
-  describe("hasLabel with property strategy", () => {
-    beforeEach(async () => {
-      await clearGraph(sandbox);
-      await sandbox.g.addV("Person::Employee").property("name", "Alice").next();
-      await sandbox.g.addV("Manager").property("name", "Bob").next();
-    });
-
-    it("hasLabel('Person') matches via __labels property", async () => {
-      const results = await sandbox.g.V().hasLabel("Person").values("name").toList();
-      expect(results).toContain("Alice");
-    });
-
-    it("hasLabel('Employee') matches via __labels property", async () => {
-      const results = await sandbox.g.V().hasLabel("Employee").values("name").toList();
-      expect(results).toContain("Alice");
-    });
-
-    it("hasLabel('Manager') does not match Person::Employee", async () => {
-      const results = await sandbox.g.V().hasLabel("Manager").values("name").toList();
-      // Bob has "Manager" as native label but no __labels
-      // The property strategy rewrites hasLabel to has("__labels", ...) so Bob won't match
-      // unless Bob also has __labels with "Manager". Since Bob is a single-label vertex,
-      // addV doesn't add __labels, so hasLabel("Manager") won't find Bob either.
-      // This is a known tradeoff of the property strategy for single-label vertices.
-      expect(results).not.toContain("Alice");
-    });
-  });
-
-  describe("has() override with property strategy", () => {
-    beforeEach(async () => {
-      await clearGraph(sandbox);
-      await sandbox.g.addV("Person::Employee").property("name", "Alice").next();
-    });
-
-    it("has(T.label, 'Person') routes through hasLabel → __labels", async () => {
-      const results = await sandbox.g.V().has(t.label, "Person").values("name").toList();
-      expect(results).toContain("Alice");
-    });
-  });
-
-  describe("neptune-aware statics (property strategy)", () => {
-    beforeEach(async () => {
-      await clearGraph(sandbox);
-      await sandbox.g.addV("Person::Employee").property("name", "Alice").next();
-    });
-
-    it("__.hasLabel('Person') inside where() matches via __labels", async () => {
-      const __ = sandbox.__;
-      const results = await sandbox.g
-        .V()
-        .where(__.hasLabel("Person"))
-        .values("name")
-        .toList();
-      expect(results).toContain("Alice");
-    });
-  });
-});

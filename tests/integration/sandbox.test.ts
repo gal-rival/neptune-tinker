@@ -15,18 +15,15 @@ describe("NeptuneSandbox (no Docker)", () => {
       const sandbox = new NeptuneSandbox();
       expect(sandbox.config.host).toBe("localhost");
       expect(sandbox.config.port).toBe(8182);
-      expect(sandbox.config.multiLabelStrategy).toBe("delimiter");
       expect(sandbox.config.guardMode).toBe("strict");
     });
 
     it("accepts custom config", () => {
       const sandbox = new NeptuneSandbox({
         port: 9999,
-        multiLabelStrategy: "property",
         guardMode: "loose",
       });
       expect(sandbox.config.port).toBe(9999);
-      expect(sandbox.config.multiLabelStrategy).toBe("property");
       expect(sandbox.config.guardMode).toBe("loose");
     });
   });
@@ -93,14 +90,14 @@ describe.skipIf(!dockerAvailable)("NeptuneSandbox (with Docker)", () => {
   let sandbox: NeptuneSandbox;
 
   beforeAll(async () => {
-    sandbox = new NeptuneSandbox({ multiLabelStrategy: "delimiter" });
+    sandbox = new NeptuneSandbox();
     await sandbox.connect();
   });
 
   afterAll(async () => {
     if (sandbox) {
       try {
-        await sandbox.g.V().drop().iterate();
+        await sandbox.g.V().drop().toList();
       } catch {
         // ignore
       }
@@ -158,7 +155,7 @@ describe.skipIf(!dockerAvailable)("NeptuneSandbox (with Docker)", () => {
     it("stores properties with set cardinality", async () => {
       await sandbox.addV("Person", { name: "Alice" });
       // Add same property again via raw traversal
-      await sandbox.g.V().hasLabel("Person").property("name", "Alice").iterate();
+      await sandbox.g.V().hasLabel("Person").property("name", "Alice").next();
 
       const values = await sandbox.g.V().hasLabel("Person").values("name").toList();
       // Set cardinality: should have only one "Alice"
@@ -166,7 +163,7 @@ describe.skipIf(!dockerAvailable)("NeptuneSandbox (with Docker)", () => {
     });
   });
 
-  describe("V_byLabel()", () => {
+  describe("hasLabel() multi-label matching via g", () => {
     beforeEach(async () => {
       await clearGraph(sandbox);
       await sandbox.addV("Person::Employee", { name: "Alice" });
@@ -175,22 +172,22 @@ describe.skipIf(!dockerAvailable)("NeptuneSandbox (with Docker)", () => {
     });
 
     it("finds vertices matching a single label component", async () => {
-      const results = await sandbox.V_byLabel("Person").values("name").toList();
+      const results = await sandbox.g.V().hasLabel("Person").values("name").toList();
       expect(results.sort()).toEqual(["Alice", "Bob"]);
     });
 
     it("finds vertices matching second label component", async () => {
-      const results = await sandbox.V_byLabel("Employee").values("name").toList();
+      const results = await sandbox.g.V().hasLabel("Employee").values("name").toList();
       expect(results).toEqual(["Alice"]);
     });
 
     it("does not match non-existent label", async () => {
-      const results = await sandbox.V_byLabel("NonExistent").values("name").toList();
+      const results = await sandbox.g.V().hasLabel("NonExistent").values("name").toList();
       expect(results).toEqual([]);
     });
 
     it("handles single-label vertices", async () => {
-      const results = await sandbox.V_byLabel("Robot").values("name").toList();
+      const results = await sandbox.g.V().hasLabel("Robot").values("name").toList();
       expect(results).toEqual(["Bender"]);
     });
   });
