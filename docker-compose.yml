@@ -1,0 +1,13 @@
+services:
+  gremlin-server:
+    image: ${NEPTUNE_TINKER_IMAGE:-tinkerpop/gremlin-server:3.7.2}
+    container_name: ${NEPTUNE_TINKER_CONTAINER:-neptune-tinker}
+    ports:
+      - "${NEPTUNE_TINKER_PORT:-8182}:8182"
+    volumes:
+      - ./gremlin-server.yaml:/opt/gremlin-server/conf/gremlin-server.yaml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8182/gremlin?gremlin=g.V().count() || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
