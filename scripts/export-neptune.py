@@ -30,24 +30,21 @@ except ImportError:
 
 
 def get_aws_headers(url: str) -> dict:
-    """Generate AWS Signature v4 headers for Neptune IAM auth.
-
-    Uses boto3.Session (not botocore) to properly resolve SSO credentials.
-    """
+    """Generate AWS Signature v4 headers for Neptune IAM auth."""
     try:
-        from boto3 import Session
         from botocore.auth import SigV4Auth
         from botocore.awsrequest import AWSRequest
+        from botocore.session import Session as BotocoreSession
 
-        session = Session()
+        session = BotocoreSession()
         credentials = session.get_credentials().get_frozen_credentials()
-        region = session.region_name
+        region = session.get_config_variable("region") or "us-east-1"
 
-        request = AWSRequest(method="GET", url=url)
+        request = AWSRequest(method="GET", url=url, headers={"Host": url.split("//")[1].split(":")[0]})
         SigV4Auth(credentials, "neptune-db", region).add_auth(request)
         return dict(request.headers)
     except ImportError:
-        print("Warning: boto3 not available. Connecting without IAM auth.", flush=True)
+        print("Warning: boto3/botocore not available. Connecting without IAM auth.", flush=True)
         return {}
     except Exception as e:
         print(f"Warning: AWS auth failed ({e}). Connecting without IAM auth.", flush=True)
@@ -59,6 +56,7 @@ def connect(endpoint: str) -> object:
     headers = {}
     if endpoint.startswith("wss://"):
         headers = get_aws_headers(endpoint)
+        print("  SigV4 headers generated", flush=True)
 
     conn = DriverRemoteConnection(
         endpoint,
@@ -73,14 +71,24 @@ def export_graph(g, org_id: str | None = None) -> dict:
     """Export all vertices and edges to the import format."""
     import time
 
-    # Query vertices
+    batch_size = 500
+
+    # Query vertices in batches
     print("  Querying vertices...", flush=True)
     t0 = time.time()
-    v_query = g.V()
-    if org_id:
-        v_query = v_query.hasLabel(org_id)
-    raw_vertices = v_query.elementMap().toList()
-    print(f"  Fetched {len(raw_vertices)} vertices ({time.time() - t0:.1f}s)", flush=True)
+    raw_vertices = []
+    offset = 0
+    while True:
+        v_query = g.V()
+        if org_id:
+            v_query = v_query.hasLabel(org_id)
+        batch = v_query.range_(offset, offset + batch_size).elementMap().toList()
+        raw_vertices.extend(batch)
+        print(f"    vertices: {len(raw_vertices)} fetched...", flush=True)
+        if len(batch) < batch_size:
+            break
+        offset += batch_size
+    print(f"  Total: {len(raw_vertices)} vertices ({time.time() - t0:.1f}s)", flush=True)
 
     vertices = []
     for v in raw_vertices:
@@ -99,15 +107,22 @@ def export_graph(g, org_id: str | None = None) -> dict:
                 vertex["properties"][key] = value
         vertices.append(vertex)
 
-    # Query edges
+    # Query edges in batches
     print("  Querying edges...", flush=True)
     t0 = time.time()
-    e_query = g.E()
-    if org_id:
-        # Filter edges connected to org vertices
-        e_query = g.V().hasLabel(org_id).bothE()
-    raw_edges = e_query.elementMap().toList()
-    print(f"  Fetched {len(raw_edges)} edges ({time.time() - t0:.1f}s)", flush=True)
+    raw_edges = []
+    offset = 0
+    while True:
+        if org_id:
+            batch = g.V().hasLabel(org_id).bothE().range_(offset, offset + batch_size).elementMap().toList()
+        else:
+            batch = g.E().range_(offset, offset + batch_size).elementMap().toList()
+        raw_edges.extend(batch)
+        print(f"    edges: {len(raw_edges)} fetched...", flush=True)
+        if len(batch) < batch_size:
+            break
+        offset += batch_size
+    print(f"  Total: {len(raw_edges)} edges ({time.time() - t0:.1f}s)", flush=True)
 
     edges = []
     seen_edge_ids = set()

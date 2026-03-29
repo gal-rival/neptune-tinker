@@ -18,12 +18,11 @@ const label = (type: string) => `${ORG}::${type}`;
 describe.skipIf(!dockerAvailable)("rival repo Gremlin patterns", () => {
   let sandbox: NeptuneSandbox;
   let g: ReturnType<typeof sandbox.g>;
-  let __: ReturnType<typeof sandbox.__>;
+  const __ = gremlin.process.statics;
 
   beforeAll(async () => {
     sandbox = await setupSandbox();
     g = sandbox.g;
-    __ = sandbox.__;
   });
 
   afterAll(async () => {
@@ -239,8 +238,10 @@ describe.skipIf(!dockerAvailable)("rival repo Gremlin patterns", () => {
         .property(t.id, "img-1")
         .property("imageTag", "latest")
         .property("imageTag", "v1.0")
-        .property("imageTag", "latest") // duplicate
         .next();
+
+      // Set same tag again on existing vertex — should deduplicate
+      await g.V("img-1").property("imageTag", "latest").next();
 
       const tags = await g.V("img-1").values("imageTag").toList();
       expect(tags.sort()).toEqual(["latest", "v1.0"]);

@@ -3,6 +3,7 @@ import gremlin from "gremlin";
 import type { NeptuneSandbox } from "./index.js";
 
 const { process: gprocess } = gremlin;
+const __ = gprocess.statics;
 const { t, cardinality } = gprocess;
 
 export interface ImportVertex {
@@ -65,7 +66,6 @@ export async function importData(
 
   // --- Edges ---
   let eCount = 0;
-  const __ = sandbox.__;
   for (let i = 0; i < data.edges.length; i += batchSize) {
     const batch = data.edges.slice(i, i + batchSize);
     for (const e of batch) {

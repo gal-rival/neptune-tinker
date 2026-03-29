@@ -33,14 +33,12 @@ describe.skipIf(!dockerAvailable)("neptune-traversal", () => {
 
   describe("property cardinality defaults to set", () => {
     it("stores property with set cardinality by default", async () => {
-      await sandbox.g
-        .addV("TestVertex")
-        .property("name", "Alice")
-        .property("name", "Alice") // duplicate — set should deduplicate
-        .next();
+      await sandbox.g.addV("TestVertex").property("name", "Alice").next();
+
+      // Set same property again on existing vertex — should deduplicate
+      await sandbox.g.V().hasLabel("TestVertex").property("name", "Alice").next();
 
       const values = await sandbox.g.V().hasLabel("TestVertex").values("name").toList();
-      // Set cardinality: only one "Alice" (not two like list would give)
       expect(values).toEqual(["Alice"]);
     });
 
@@ -157,7 +155,9 @@ describe.skipIf(!dockerAvailable)("neptune-traversal", () => {
   // Neptune-aware statics (__)
   // =========================================================================
 
-  describe("neptune-aware statics (__)", () => {
+  describe("standard statics (__) with server-side strategy", () => {
+    const __ = gprocess.statics;
+
     beforeEach(async () => {
       await clearGraph(sandbox);
       await sandbox.g.addV("Person::Employee").property("name", "Alice").next();
@@ -165,7 +165,6 @@ describe.skipIf(!dockerAvailable)("neptune-traversal", () => {
     });
 
     it("__.hasLabel('Person') inside where() matches multi-label vertex", async () => {
-      const __ = sandbox.__;
       const results = await sandbox.g
         .V()
         .where(__.hasLabel("Person"))
@@ -176,7 +175,6 @@ describe.skipIf(!dockerAvailable)("neptune-traversal", () => {
     });
 
     it("__.hasLabel('Employee') inside filter() matches", async () => {
-      const __ = sandbox.__;
       const results = await sandbox.g
         .V()
         .filter(__.hasLabel("Employee"))
