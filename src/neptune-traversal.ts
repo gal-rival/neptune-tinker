@@ -92,11 +92,7 @@ export function createNeptuneTraversal() {
     }
   }
 
-  class NeptuneGraphTraversalSource extends GraphTraversalSource {
-    addV(...args: unknown[]) {
-      return super.addV(...args);
-    }
-  }
+  class NeptuneGraphTraversalSource extends GraphTraversalSource {}
 
   // Neptune-aware anonymous traversal helpers (statics / __).
   // Standard gprocess.statics creates base GraphTraversal instances that

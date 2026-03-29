@@ -194,10 +194,13 @@ The traversal source returned by `sandbox.connect()` intercepts these steps to a
 
 ### What it does NOT handle
 
-- **Anonymous traversals** — Use `sandbox.__` (or `const __ = sandbox.__`) instead of `gprocess.statics` for multi-label-aware anonymous traversals inside `where()`, `filter()`, `not()`.
+- **Anonymous traversals (JS only)** — Use `sandbox.__` (or `const __ = sandbox.__`) instead of `gprocess.statics` for multi-label-aware anonymous traversals inside `where()`, `filter()`, `not()`.
 - **Auto-generated IDs** — `sandbox.addV()` auto-generates UUID string IDs (matching Neptune). Raw `g.addV()` uses TinkerGraph's numeric IDs — always chain `.property(t.id, "my-id")` when using raw `g`.
 - **Guard on bytecode** — The `lint()`/`guard()` functions only check string queries. Bytecode queries (the normal `g.V()...` API) are handled by the traversal overrides instead.
-- **Python/Java clients and multi-label `hasLabel()`** — The multi-label `hasLabel()` override only works through the JavaScript middleware. Python and Java clients connect directly to the Gremlin Server and use native TinkerGraph label matching. `SubgraphStrategy(vertices=__.hasLabel(orgId))` won't match `orgId::Finding` vertices. Workaround: skip `SubgraphStrategy` for local connections (single-tenant sandbox).
+
+### Multi-label support for all clients
+
+The sandbox includes a server-side `NeptuneMultiLabelStrategy` (Groovy TraversalStrategy) that makes `hasLabel()` work with `::` delimiter labels for **all clients** — Python, Java, JavaScript, Gremlin Console. This runs inside the Gremlin Server itself, so no client-side middleware is needed for basic multi-label matching.
 
 ## Architecture
 

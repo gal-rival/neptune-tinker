@@ -105,17 +105,16 @@ The `::` delimiter is reserved exclusively for this multi-label purpose.
 │  │  NeptuneSandbox  │  │  Guard Layer                 │   │
 │  │                  │  │                              │   │
 │  │  .addV()         │  │  .lint(query) → violations[] │   │
-│  │  .V_byLabel()    │  │  .guard(query) → throw/warn  │   │
-│  │  .submit(query)  │  │                              │   │
+│  │  .submit(query)  │  │  .guard(query) → throw/warn  │   │
+│  │                  │  │                              │   │
 │  └────────┬─────────┘  └──────────────────────────────┘   │
 │           │                                               │
 │  ┌────────▼─────────┐                                     │
 │  │  Multi-Label      │                                    │
-│  │  Middleware        │                                    │
+│  │  Middleware (JS)   │                                    │
+│  │  + Server-side     │                                    │
+│  │  Strategy (Groovy) │                                    │
 │  │                    │                                    │
-│  │  Strategy:         │                                    │
-│  │   "delimiter" or   │                                    │
-│  │   "property"       │                                    │
 │  └────────┬───────────┘                                   │
 │           │  gremlin-javascript (WebSocket)                │
 └───────────┼───────────────────────────────────────────────┘
@@ -165,46 +164,28 @@ The scripts are also installed as CLI commands via `bin` (`neptune-tinker-start`
 
 The start script generates a Gremlin Server YAML from the template (`scripts/gremlin-server.template.yaml`) with the configured port injected, mounts it into the container, and polls the health endpoint until ready.
 
-### Layer 2: Multi-Label Middleware
+### Layer 2: Multi-Label Emulation
 
-TinkerGraph doesn't support multi-label vertices. The middleware emulates Neptune's `::` semantics using one of two configurable strategies.
+TinkerGraph doesn't support multi-label vertices. The sandbox emulates Neptune's `::` semantics at two levels:
 
-#### Strategy: `"delimiter"` (default)
+#### Server-side: `NeptuneMultiLabelStrategy` (all clients)
 
-Stores the label as-is (e.g., `"Person::Employee"`) in TinkerGraph's native label field. This is the cheapest approach and preserves the exact label string that Neptune would return from `.label()`.
+A Groovy `TraversalStrategy` loaded at server startup (`scripts/neptune-init.groovy`) that intercepts `HasStep` with `T.label` predicates and rewrites them to `::` boundary-aware matching. This works for **all clients** — Python, Java, JavaScript, Gremlin Console — because it runs inside the Gremlin Server itself.
 
-The middleware patches querying: when you call `V_byLabel('Person')`, it generates a filter traversal that checks whether the native label equals `"Person"`, starts with `"Person::"`, or contains `"::Person"`. This correctly handles single-label vertices, multi-label vertices, and avoids false matches on partial strings (e.g., `"PersonHelper"` won't match a query for `"Person"`).
+How it works:
+- `hasLabel("Person")` → replaced with a `LambdaFilterStep` that checks if the vertex label equals `"Person"`, starts with `"Person::"`, ends with `"::Person"`, or contains `"::Person::"`
+- `hasLabel("Person::Employee")` → replaced with a filter that always returns false (Neptune behavior: compound labels never match)
+- `hasLabel(P.within("A", "B"))` → each target checked with boundary-aware matching
+- Chained `hasLabel("org").hasLabel("Finding")` → TinkerPop merges into one `HasStep` with two containers; the strategy handles both
 
-**Trade-off:** In raw TinkerGraph, `hasLabel('Person::Employee')` would match a vertex with that exact label string. In Neptune, it never matches. The guard layer flags this pattern, but if you bypass the guard and use raw `hasLabel` with a `::` string, you'll get a false positive that wouldn't occur in production.
+#### Client-side: `NeptuneGraphTraversal` (JS middleware)
 
-#### Strategy: `"property"`
-
-Stores the compound label string as the native label (same as delimiter strategy for `.label()` output), but additionally writes each label component into a hidden property `__labels` with set cardinality.
-
-```gremlin
-// What addV('Person::Employee', {...}, 'v1') becomes internally:
-g.addV('Person::Employee')
-  .property(id, 'v1')
-  .property(set, '__labels', 'Person')
-  .property(set, '__labels', 'Employee')
-  ...
-```
-
-When you call `V_byLabel('Person')`, it translates to `g.V().has('__labels', 'Person')`, which is a native TinkerGraph property lookup — no string parsing needed at query time.
-
-**Trade-off:** Extra storage per vertex (one property value per label component). The `__labels` property is visible if you do a raw `valueMap()`. And any code that adds vertices without going through the middleware won't have the `__labels` property set.
-
-#### Choosing a Strategy
-
-| Concern | Delimiter | Property |
-|---------|-----------|----------|
-| Fidelity to Neptune `.label()` output | Identical | Identical |
-| Query correctness | Good (filter-based) | Exact (property-based) |
-| Performance | String matching per vertex | Index lookup |
-| Hidden state | None | `__labels` property on every vertex |
-| Works with raw Gremlin bypassing middleware | Partially (label string is correct, hasLabel needs care) | Only if `__labels` was written |
-
-For most local dev use cases, `"delimiter"` is the right default. Use `"property"` if you need reliable `hasLabel` behavior in raw Gremlin queries that bypass the `V_byLabel()` helper.
+For JavaScript clients using `NeptuneSandbox`, the traversal subclass provides additional overrides:
+- `property()` defaults to `set` cardinality
+- `has(t.label, value)` routes through multi-label `hasLabel()`
+- `has(label, key, value)` decomposes to `hasLabel(label).has(key, value)`
+- `iterate()` maps to `toList()` (gremlin-js 3.8 compat with TinkerPop 3.7.2)
+- `sandbox.__` provides Neptune-aware anonymous traversals for `where()`/`filter()`/`not()`
 
 ### Layer 3: Compatibility Guard
 
@@ -268,7 +249,7 @@ const sandbox = new NeptuneSandbox({
   port: 9182,                        // match your script port
   // host: 'localhost',              // default
   // endpoint: 'ws://...',           // overrides host/port if set
-  multiLabelStrategy: 'delimiter',
+  guardMode: 'strict',
   guardMode: 'strict',
 });
 
@@ -280,10 +261,10 @@ await sandbox.addV('Person::Manager', { name: 'Bob', dept: 'Engineering' }, 'bob
 await sandbox.addV('Project', { name: 'Neptune Migration' }, 'proj-1');
 
 // Query by single label component
-const allPeople = await sandbox.V_byLabel('Person').toList();
+const allPeople = await sandbox.g.V().hasLabel('Person').toList();
 // → [alice-1, bob-1]
 
-const managers = await sandbox.V_byLabel('Manager').toList();
+const managers = await sandbox.g.V().hasLabel('Manager').toList();
 // → [bob-1]
 
 // Use the traversal source directly for standard Gremlin

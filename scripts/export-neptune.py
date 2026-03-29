@@ -29,8 +29,14 @@ except ImportError:
     sys.exit(1)
 
 
-def get_aws_headers(url: str) -> dict:
-    """Generate AWS Signature v4 headers for Neptune IAM auth."""
+def get_aws_headers(url: str, signing_host: str | None = None) -> dict:
+    """Generate AWS Signature v4 headers for Neptune IAM auth.
+
+    Args:
+        url: The WebSocket endpoint URL (may be a tunnel like wss://localhost:8183/gremlin).
+        signing_host: The real Neptune hostname for SigV4 signing. If None, derived from url.
+                      Required when connecting through an SSM/SSH tunnel.
+    """
     try:
         from botocore.auth import SigV4Auth
         from botocore.awsrequest import AWSRequest
@@ -40,7 +46,10 @@ def get_aws_headers(url: str) -> dict:
         credentials = session.get_credentials().get_frozen_credentials()
         region = session.get_config_variable("region") or "us-east-1"
 
-        request = AWSRequest(method="GET", url=url, headers={"Host": url.split("//")[1].split(":")[0]})
+        host = signing_host or url.split("//")[1].split(":")[0]
+        signing_url = f"wss://{host}:8182/gremlin" if signing_host else url
+
+        request = AWSRequest(method="GET", url=signing_url, headers={"Host": host})
         SigV4Auth(credentials, "neptune-db", region).add_auth(request)
         return dict(request.headers)
     except ImportError:
@@ -51,11 +60,11 @@ def get_aws_headers(url: str) -> dict:
         return {}
 
 
-def connect(endpoint: str) -> object:
+def connect(endpoint: str, signing_host: str | None = None) -> object:
     """Connect to Neptune and return the traversal source."""
     headers = {}
     if endpoint.startswith("wss://"):
-        headers = get_aws_headers(endpoint)
+        headers = get_aws_headers(endpoint, signing_host)
 
     conn = DriverRemoteConnection(
         endpoint,
@@ -127,11 +136,14 @@ def main():
     parser = argparse.ArgumentParser(description="Export Neptune graph data for neptune-tinker sandbox")
     parser.add_argument("--endpoint", required=True, help="Neptune WebSocket endpoint (wss://... or ws://...)")
     parser.add_argument("--org-id", help="Filter to a specific org ID (multi-tenant label prefix)")
+    parser.add_argument("--signing-host", help="Real Neptune hostname for SigV4 signing (when connecting through a tunnel)")
     parser.add_argument("--output", "-o", default="neptune-export.json", help="Output JSON file path")
     args = parser.parse_args()
 
     print(f"Connecting to {args.endpoint}...")
-    g, conn = connect(args.endpoint)
+    if args.signing_host:
+        print(f"SigV4 signing host: {args.signing_host}")
+    g, conn = connect(args.endpoint, args.signing_host)
 
     print(f"Exporting graph data{' for org ' + args.org_id if args.org_id else ''}...")
     data = export_graph(g, args.org_id)
