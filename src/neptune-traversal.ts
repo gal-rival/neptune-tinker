@@ -75,6 +75,14 @@ export function createNeptuneTraversal() {
       super.addV(...args);
       return this;
     }
+
+    /**
+     * Override iterate() — gremlin-js 3.8.0 sends a `discard()` step that
+     * TinkerPop 3.7.2 doesn't support. Use toList() as a compatible alternative.
+     */
+    async iterate(): Promise<void> {
+      await this.toList();
+    }
   }
 
   class NeptuneGraphTraversalSource extends GraphTraversalSource {
