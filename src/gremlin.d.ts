@@ -119,7 +119,14 @@ declare module "gremlin" {
       clone(): GraphTraversal;
     }
     const t: { id: unknown; label: unknown; key: unknown; value: unknown };
-    const cardinality: { single: unknown; set: unknown };
+    const cardinality: { single: unknown; set: unknown; list: unknown };
+    const order: { asc: unknown; desc: unknown; shuffle: unknown };
+    const scope: { local: unknown; global: unknown };
+    const column: { keys: unknown; values: unknown };
+    const direction: { IN: unknown; OUT: unknown; BOTH: unknown };
+    const pop: { first: unknown; last: unknown; all: unknown; mixed: unknown };
+    const withOptions: Record<string, unknown>;
+    const merge: { onMatch: unknown; onCreate: unknown; outV: unknown; inV: unknown };
     const statics: {
       label(): GraphTraversal;
       or(...traversals: GraphTraversal[]): GraphTraversal;
@@ -127,14 +134,32 @@ declare module "gremlin" {
       [key: string]: (...args: unknown[]) => GraphTraversal;
     };
     class P {
+      biPredicate: unknown;
+      value: unknown;
       static eq(value: unknown): P;
       static neq(value: unknown): P;
+      static lt(value: unknown): P;
+      static lte(value: unknown): P;
+      static gt(value: unknown): P;
+      static gte(value: unknown): P;
+      static inside(low: unknown, high: unknown): P;
+      static outside(low: unknown, high: unknown): P;
+      static between(low: unknown, high: unknown): P;
       static within(...values: unknown[]): P;
+      static without(...values: unknown[]): P;
+      static not(predicate: P): P;
+      and(predicate: P): P;
+      or(predicate: P): P;
     }
     class TextP {
       static containing(value: string): TextP;
+      static notContaining(value: string): TextP;
       static startingWith(value: string): TextP;
+      static notStartingWith(value: string): TextP;
       static endingWith(value: string): TextP;
+      static notEndingWith(value: string): TextP;
+      static regex(value: string): TextP;
+      static notRegex(value: string): TextP;
     }
     function traversal(
       traversalSourceClass?: unknown,
