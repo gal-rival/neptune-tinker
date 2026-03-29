@@ -11,25 +11,43 @@ const { P, TextP, t, cardinality, order, scope, column, direction, pop, withOpti
 const sandbox = new NeptuneSandbox();
 await sandbox.connect();
 
-console.log("\n  Neptune Sandbox REPL — middleware loaded\n");
-console.log("  Globals:");
-console.log("    sandbox   — NeptuneSandbox instance (connected)");
-console.log("    g         — Gremlin traversal source");
-console.log("    lint(q)   — lint a Gremlin string");
-console.log("    guard(q)  — guard a Gremlin string (throws in strict)");
-console.log("    __        — Neptune-aware anonymous traversal helpers");
-console.log("    P, TextP  — predicates (P.gt, P.within, TextP.containing, ...)");
-console.log("    t         — tokens (t.id, t.label)");
-console.log("    order     — ordering (order.asc, order.desc)");
-console.log("    cardinality, scope, column, direction, pop");
-console.log("");
-console.log("  Examples:");
-console.log('    await sandbox.addV("Person::Employee", { name: "Alice" }, "a1")');
-console.log('    await g.V().hasLabel("Person").toList()');
-console.log('    await g.V().count().next()');
-console.log('    await g.V().where(__.hasLabel("Person")).toList()');
-console.log('    lint("g.V(123)")');
-console.log("");
+console.log(`
+  Neptune Sandbox REPL
+  ────────────────────
+  Local TinkerGraph with Neptune-compatible behavior.
+  All queries use Neptune semantics — multi-label matching, set cardinality,
+  string IDs. Write Gremlin the same way you would against real Neptune.
+
+  What's different from raw TinkerGraph:
+    - hasLabel("Person") matches "Person::Employee" vertices (multi-label)
+    - .property("k","v") defaults to set cardinality (not list)
+    - hasLabel("A::B") returns empty (Neptune behavior, not exact match)
+    - .iterate() works (patched for gremlin-js 3.8 / TinkerPop 3.7 compat)
+
+  Globals:
+    g              Gremlin traversal source (Neptune-aware)
+    __             Anonymous traversals for where()/filter()/not()
+    sandbox        NeptuneSandbox instance — sandbox.addV() auto-generates UUIDs
+    P, TextP       Predicates — P.gt(5), P.within("a","b"), TextP.containing("x")
+    t              Tokens — t.id, t.label
+    order          order.asc, order.desc
+    cardinality    cardinality.single, cardinality.set
+    scope, column, direction, pop, withOptions
+    lint(query)    Check a Gremlin string for Neptune violations
+    guard(query)   Same, but throws in strict mode
+
+  Quick start:
+    await g.addV("Org::Person").property(t.id, "p1").property("name", "Alice").next()
+    await g.V().hasLabel("Person").elementMap().toList()
+    await g.V().has("Person", "name", "Alice").values("name").toList()
+    await g.V().hasLabel("Org").count().next()
+    await g.V().order().by("name", order.desc).limit(5).values("name").toList()
+    lint("g.V(123)")
+
+  Data:
+    Data persists across stop/start. Use 'neptune-tinker reset' to clear.
+    Use 'neptune-tinker import data.json' to load exported Neptune data.
+`);
 
 const r = repl.start({ prompt: "neptune> ", useGlobal: true });
 
