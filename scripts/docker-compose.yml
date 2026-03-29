@@ -22,6 +22,8 @@ services:
     container_name: ${NEPTUNE_TINKER_CONTAINER:-neptune-tinker}-console
     volumes:
       - ./remote-console.yaml:/opt/gremlin-console/conf/remote.yaml:ro
+      - ./console-init.groovy:/opt/gremlin-console/scripts/init.groovy:ro
+    command: ["-i", "scripts/init.groovy"]
     depends_on:
       gremlin-server:
         condition: service_healthy
