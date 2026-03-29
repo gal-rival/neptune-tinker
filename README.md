@@ -179,6 +179,27 @@ Set via env vars inline (e.g. `NEPTUNE_TINKER_PORT=9182 pnpm run sandbox:start`)
 | MetaProperties | ❌ | ✅ |
 | Variables | ❌ | ✅ |
 
+## Known Limitations
+
+### What the transparent `g` wrapper handles
+
+The traversal source returned by `sandbox.connect()` intercepts these steps to apply Neptune semantics:
+
+| Step | Behavior |
+|------|----------|
+| `g.addV("A::B")` | Multi-label emulation (property strategy adds `__labels`) |
+| `g.V().hasLabel("A")` | Multi-label matching (matches `"A::B::C"` vertices) |
+| `g.V().has("A", "key", "val")` | Routes through multi-label `hasLabel` |
+| `g.V().has(t.label, "A")` | Routes through multi-label `hasLabel` |
+| `g.V().property("k", "v")` | Defaults to `set` cardinality (also enforced server-side) |
+
+### What it does NOT handle
+
+- **Anonymous traversals** — `__.hasLabel("Person")` inside `where()`, `filter()`, `not()` etc. creates a standard Gremlin traversal that does NOT use multi-label matching. Use the methods on `g` directly instead of nesting label checks in anonymous traversals.
+- **Auto-generated IDs** — TinkerGraph auto-generates numeric Long IDs that the JS driver can't look up. Always specify string IDs explicitly (this is Neptune-compatible anyway).
+- **Guard on bytecode** — The `lint()`/`guard()` functions only check string queries. Bytecode queries (the normal `g.V()...` API) are handled by the traversal overrides instead.
+- **`__labels` visibility** — With the `"property"` multi-label strategy, the internal `__labels` property is visible in `valueMap()` results. Use the default `"delimiter"` strategy to avoid this.
+
 ## Architecture
 
 ```

@@ -3,7 +3,7 @@ import type { MultiLabelStrategy } from "./types.js";
 import { parseMultiLabel, HIDDEN_LABELS_KEY, LABEL_DELIM } from "./multilabel.js";
 
 const { process: gprocess } = gremlin;
-const { GraphTraversalSource, GraphTraversal, P, TextP, cardinality, statics: __ } = gprocess;
+const { GraphTraversalSource, GraphTraversal, P, TextP, cardinality, t, statics: __ } = gprocess;
 
 export interface NeptuneTraversalConfig {
   multiLabelStrategy: MultiLabelStrategy;
@@ -72,10 +72,15 @@ export function createNeptuneTraversal(config: NeptuneTraversalConfig) {
      * We need the hasLabel part to go through our multi-label-aware override.
      */
     has(...args: unknown[]) {
+      // 2-arg form: has(T.label, value) — direct label access
+      // Route through our hasLabel override for multi-label matching.
+      if (args.length === 2 && args[0] === t.label && typeof args[1] === "string") {
+        return this.hasLabel(args[1]);
+      }
       // 3-arg form: has(label, key, value/predicate)
+      // In Gremlin, has("Person", "name", "Alice") means hasLabel("Person").has("name", "Alice").
       if (args.length === 3 && typeof args[0] === "string" && typeof args[1] === "string") {
         const [label, key, value] = args;
-        // Route through our hasLabel override, then chain has(key, value)
         return this.hasLabel(label).has(key, value);
       }
       return super.has(...args);

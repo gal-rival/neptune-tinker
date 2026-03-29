@@ -132,6 +132,16 @@ export function lintQuery(query: string, mode: GuardMode = "strict"): GuardViola
     });
   }
 
+  // ---- has(T.label, ...) with :: delimiter ----
+  const hasWithTLabel = /\.has\s*\(\s*(?:T\.label|t\.label)\s*,\s*['"]([^'"]*::.*?)['"]\s*\)/.exec(query);
+  if (hasWithTLabel) {
+    violations.push({
+      rule: "no-hasLabel-with-delimiter",
+      message: `has(T.label, "${hasWithTLabel[1]}") won't match in Neptune. The :: delimiter is only for addV(). Use hasLabel("SingleLabel") instead.`,
+      severity: sev,
+    });
+  }
+
   // ---- Fully qualified class names ----
   if (/org\.apache\.tinkerpop/.test(query)) {
     violations.push({
