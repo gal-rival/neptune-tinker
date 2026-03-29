@@ -1,5 +1,10 @@
 import repl from "node:repl";
-import { NeptuneSandbox, lintQuery, guardQuery, parseMultiLabel, joinMultiLabel } from "../dist/index.js";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const { NeptuneSandbox, lintQuery, guardQuery, parseMultiLabel, joinMultiLabel } =
+  await import(join(__dirname, "..", "dist", "index.js"));
 
 const sandbox = new NeptuneSandbox();
 await sandbox.connect();

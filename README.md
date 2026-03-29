@@ -73,16 +73,40 @@ g.addV('Person').property('name', 'Alice').property(id, 'a1')
 g.V().valueMap(true)
 ```
 
-### In your own code
+## Integrating Into Another Repo
+
+### Install
+
+```bash
+pnpm add neptune-tinker
+```
+
+### CLI (from package.json scripts)
+
+```jsonc
+// consumer's package.json
+{
+  "scripts": {
+    "sandbox:start": "neptune-tinker start",
+    "sandbox:stop": "neptune-tinker stop",
+    "sandbox:repl": "neptune-tinker repl",
+    "sandbox:console": "neptune-tinker console"
+  }
+}
+```
+
+All paths resolve automatically — no config needed.
+
+### Programmatic (in test setup, scripts, etc.)
 
 ```typescript
-import { NeptuneSandbox } from 'neptune-tinker';
+import { startSandbox, stopSandbox, NeptuneSandbox } from 'neptune-tinker';
 
-const sandbox = new NeptuneSandbox({
-  multiLabelStrategy: 'delimiter',   // or 'property'
-  guardMode: 'strict',               // or 'loose'
-});
+// Start Docker sandbox (blocks until healthy)
+startSandbox();
 
+// Use the middleware
+const sandbox = new NeptuneSandbox();
 await sandbox.connect();
 
 await sandbox.addV('Person::Employee', { name: 'Alice', age: 30 }, 'alice-1');
@@ -92,7 +116,19 @@ const issues = sandbox.lint(`g.V(123).hasLabel('A::B')`);
 // → [{ rule: 'string-ids-only', ... }, { rule: 'no-hasLabel-with-delimiter', ... }]
 
 await sandbox.close();
+
+// Stop when done
+stopSandbox();
 ```
+
+### Custom port
+
+```typescript
+startSandbox({ port: 9182 });
+const sandbox = new NeptuneSandbox({ port: 9182 });
+```
+
+Or via CLI: `neptune-tinker start --port 9182`
 
 ## Claude Integration
 

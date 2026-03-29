@@ -5,16 +5,25 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "bin": {
+    "neptune-tinker": "bin/neptune-tinker.mjs"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "sandbox:start": "docker compose -f scripts/docker-compose.yml up -d --wait",
-    "sandbox:stop": "docker compose -f scripts/docker-compose.yml down",
-    "sandbox:reset": "docker compose -f scripts/docker-compose.yml down && docker compose -f scripts/docker-compose.yml up -d --wait",
-    "sandbox:health": "docker compose -f scripts/docker-compose.yml ps",
-    "sandbox:logs": "docker compose -f scripts/docker-compose.yml logs -f",
-    "sandbox:console": "docker compose -f scripts/docker-compose.yml run --rm gremlin-console",
-    "sandbox:repl": "node scripts/repl.mjs"
+    "sandbox:start": "neptune-tinker start",
+    "sandbox:stop": "neptune-tinker stop",
+    "sandbox:reset": "neptune-tinker reset",
+    "sandbox:health": "neptune-tinker health",
+    "sandbox:logs": "neptune-tinker logs",
+    "sandbox:console": "neptune-tinker console",
+    "sandbox:repl": "neptune-tinker repl"
   },
   "dependencies": {
     "gremlin": "^3.7.2"
@@ -26,6 +35,7 @@
   "files": [
     "dist",
     "scripts",
-    "skills"
+    "skills",
+    "bin"
   ]
 }

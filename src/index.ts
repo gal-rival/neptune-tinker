@@ -170,3 +170,13 @@ export {
 export type { NeptuneTinkerConfig, ResolvedConfig, GuardMode, MultiLabelStrategy } from "./types.js";
 export type { GuardViolation } from "./guard.js";
 export { resolveConfig, resolveEndpoint, NEPTUNE_UNSUPPORTED, DEFAULT_HOST, DEFAULT_PORT } from "./types.js";
+export {
+  startSandbox,
+  stopSandbox,
+  resetSandbox,
+  sandboxHealth,
+  sandboxLogs,
+  SCRIPTS_PATH,
+  COMPOSE_PATH,
+} from "./sandbox.js";
+export type { SandboxOptions } from "./sandbox.js";
