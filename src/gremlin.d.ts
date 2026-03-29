@@ -13,14 +13,29 @@ declare module "gremlin" {
 
   export namespace process {
     class GraphTraversalSource {
-      addV(label: string): GraphTraversal;
-      V(): GraphTraversal;
-      E(): GraphTraversal;
+      constructor(
+        graph: unknown,
+        traversalStrategies: unknown,
+        bytecode?: unknown,
+        graphTraversalSourceClass?: unknown,
+        graphTraversalClass?: unknown,
+      );
+      graph: unknown;
+      traversalStrategies: unknown;
+      bytecode: unknown;
+      graphTraversalSourceClass: unknown;
+      graphTraversalClass: unknown;
+      addV(...args: unknown[]): GraphTraversal;
+      V(...args: unknown[]): GraphTraversal;
+      E(...args: unknown[]): GraphTraversal;
     }
     class GraphTraversal {
+      constructor(graph: unknown, traversalStrategies: unknown, bytecode: unknown);
+      bytecode: unknown;
       property(...args: unknown[]): GraphTraversal;
       has(...args: unknown[]): GraphTraversal;
       hasLabel(...args: unknown[]): GraphTraversal;
+      addV(...args: unknown[]): GraphTraversal;
       filter(traversal: GraphTraversal): GraphTraversal;
       count(): GraphTraversal;
       next(): Promise<{ value: unknown; done: boolean }>;
@@ -47,9 +62,14 @@ declare module "gremlin" {
       static startingWith(value: string): TextP;
       static endingWith(value: string): TextP;
     }
-    function traversal(): AnonymousTraversalSource;
+    function traversal(
+      traversalSourceClass?: unknown,
+      traversalClass?: unknown,
+    ): AnonymousTraversalSource;
     class AnonymousTraversalSource {
+      constructor(traversalSourceClass?: unknown, traversalClass?: unknown);
       withRemote(connection: driver.DriverRemoteConnection): GraphTraversalSource;
+      with_(connection: driver.DriverRemoteConnection): GraphTraversalSource;
     }
   }
 

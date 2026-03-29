@@ -3,6 +3,7 @@ import type { NeptuneTinkerConfig, ResolvedConfig } from "./types.js";
 import { resolveConfig, NEPTUNE_UNSUPPORTED } from "./types.js";
 import { guardQuery, lintQuery } from "./guard.js";
 import { parseMultiLabel, HIDDEN_LABELS_KEY, LABEL_DELIM } from "./multilabel.js";
+import { createNeptuneTraversal } from "./neptune-traversal.js";
 
 const { driver, process: gprocess } = gremlin;
 const { DriverRemoteConnection } = driver;
@@ -20,10 +21,17 @@ export class NeptuneSandbox {
     this.config = resolveConfig(config);
   }
 
-  /** Connect to the Gremlin Server and return the traversal source. */
+  /** Connect to the Gremlin Server and return the traversal source.
+   *  The returned `g` transparently handles Neptune semantics:
+   *  - Multi-label emulation (addV, hasLabel)
+   *  - Default set cardinality for properties
+   */
   async connect(): Promise<GremlinTraversalSource> {
     this.connection = new DriverRemoteConnection(this.config.endpoint);
-    this._g = gprocess.traversal().withRemote(this.connection);
+    const { Source, Traversal } = createNeptuneTraversal({
+      multiLabelStrategy: this.config.multiLabelStrategy,
+    });
+    this._g = gprocess.traversal(Source, Traversal).withRemote(this.connection);
     return this._g;
   }
 
@@ -180,3 +188,5 @@ export {
   COMPOSE_PATH,
 } from "./sandbox.js";
 export type { SandboxOptions } from "./sandbox.js";
+export { createNeptuneTraversal } from "./neptune-traversal.js";
+export type { NeptuneTraversalConfig } from "./neptune-traversal.js";
