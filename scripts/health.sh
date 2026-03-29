@@ -18,7 +18,7 @@ if [ "$STATE" != "running" ]; then
 fi
 
 # Check Gremlin endpoint
-if curl -sf "http://localhost:${PORT}/gremlin?gremlin=g.V().count()" >/dev/null 2>&1; then
+if bash -c "</dev/tcp/localhost/${PORT}" 2>/dev/null; then
   echo "[neptune-tinker] Healthy — ws://localhost:${PORT}/gremlin"
   exit 0
 else

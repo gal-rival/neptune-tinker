@@ -1,0 +1,18 @@
+services:
+  gremlin-server:
+    image: ${NEPTUNE_TINKER_IMAGE:-tinkerpop/gremlin-server:3.7.2}
+    container_name: ${NEPTUNE_TINKER_CONTAINER:-neptune-tinker}
+    ports:
+      - "${NEPTUNE_TINKER_PORT:-8182}:8182"
+    volumes:
+      - ./gremlin-server.yaml:/opt/gremlin-server/custom-conf/gremlin-server.yaml:ro
+      - ./tinkergraph.properties:/opt/gremlin-server/custom-conf/tinkergraph.properties:ro
+    entrypoint: >
+      bash -c "cp /opt/gremlin-server/custom-conf/gremlin-server.yaml /opt/gremlin-server/conf/gremlin-server.yaml &&
+      cp /opt/gremlin-server/custom-conf/tinkergraph.properties /opt/gremlin-server/conf/tinkergraph.properties &&
+      /opt/gremlin-server/bin/gremlin-server.sh conf/gremlin-server.yaml"
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/8182' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10

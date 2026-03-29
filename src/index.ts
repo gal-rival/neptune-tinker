@@ -4,29 +4,31 @@ import { resolveConfig, NEPTUNE_UNSUPPORTED } from "./types.js";
 import { guardQuery, lintQuery } from "./guard.js";
 import { parseMultiLabel, HIDDEN_LABELS_KEY, LABEL_DELIM } from "./multilabel.js";
 
-const { driver, process: gprocess, structure } = gremlin;
+const { driver, process: gprocess } = gremlin;
 const { DriverRemoteConnection } = driver;
-const { Graph } = structure;
+
+type GremlinConnection = import("gremlin").driver.DriverRemoteConnection;
+type GremlinTraversalSource = import("gremlin").process.GraphTraversalSource;
+type GremlinTraversal = import("gremlin").process.GraphTraversal;
 
 export class NeptuneSandbox {
   readonly config: ResolvedConfig;
-  private connection: InstanceType<typeof DriverRemoteConnection> | null = null;
-  private _g: InstanceType<typeof gprocess.GraphTraversalSource> | null = null;
+  private connection: GremlinConnection | null = null;
+  private _g: GremlinTraversalSource | null = null;
 
   constructor(config: NeptuneTinkerConfig = {}) {
     this.config = resolveConfig(config);
   }
 
   /** Connect to the Gremlin Server and return the traversal source. */
-  async connect(): Promise<InstanceType<typeof gprocess.GraphTraversalSource>> {
+  async connect(): Promise<GremlinTraversalSource> {
     this.connection = new DriverRemoteConnection(this.config.endpoint);
-    const graph = new Graph();
-    this._g = graph.traversal().withRemote(this.connection);
+    this._g = gprocess.traversal().withRemote(this.connection);
     return this._g;
   }
 
   /** Get the traversal source (must call connect() first). */
-  get g(): InstanceType<typeof gprocess.GraphTraversalSource> {
+  get g(): GremlinTraversalSource {
     if (!this._g) throw new Error("Not connected. Call connect() first.");
     return this._g;
   }
@@ -105,12 +107,13 @@ export class NeptuneSandbox {
     // We use filter + label().is(containing(label)) but since Gremlin doesn't have
     // a native "contains substring" that respects :: boundaries, we use a workaround:
     // Vertices whose label is exactly `label` OR contains `::label::` or starts with `label::` or ends with `::label`
+    const __ = gprocess.statics;
     return g.V().filter(
-      gprocess.statics.label().is(gprocess.P.eq(label))
-        .or(
-          gprocess.statics.label().is(gprocess.TextP.containing(`${LABEL_DELIM}${label}`)),
-          gprocess.statics.label().is(gprocess.TextP.containing(`${label}${LABEL_DELIM}`)),
-        )
+      __.or(
+        __.label().is(gprocess.P.eq(label)),
+        __.label().is(gprocess.TextP.containing(`${LABEL_DELIM}${label}`)),
+        __.label().is(gprocess.TextP.containing(`${label}${LABEL_DELIM}`)),
+      )
     );
   }
 
@@ -164,5 +167,6 @@ export {
   HIDDEN_LABELS_KEY,
   LABEL_DELIM,
 } from "./multilabel.js";
-export type { NeptuneTinkerConfig, ResolvedConfig, GuardMode, MultiLabelStrategy, GuardViolation } from "./types.js";
+export type { NeptuneTinkerConfig, ResolvedConfig, GuardMode, MultiLabelStrategy } from "./types.js";
+export type { GuardViolation } from "./guard.js";
 export { resolveConfig, resolveEndpoint, NEPTUNE_UNSUPPORTED, DEFAULT_HOST, DEFAULT_PORT } from "./types.js";

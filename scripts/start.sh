@@ -34,7 +34,7 @@ docker run -d \
 # Wait for healthy
 echo -n "[neptune-tinker] Waiting for server"
 for i in $(seq 1 30); do
-  if curl -sf "http://localhost:${PORT}/gremlin?gremlin=g.V().count()" >/dev/null 2>&1; then
+  if bash -c "</dev/tcp/localhost/${PORT}" 2>/dev/null; then
     echo " ready."
     echo "[neptune-tinker] ws://localhost:${PORT}/gremlin"
     exit 0

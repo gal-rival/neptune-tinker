@@ -1,8 +1,4 @@
 import type { MultiLabelStrategy } from "./types.js";
-import gremlin from "gremlin";
-
-const { process: gprocess } = gremlin;
-const { GraphTraversal } = gprocess;
 
 /**
  * Multi-label support for TinkerGraph that emulates Neptune's `::` semantics.
