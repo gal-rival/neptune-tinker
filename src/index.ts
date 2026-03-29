@@ -3,7 +3,7 @@ import gremlin from "gremlin";
 import type { NeptuneTinkerConfig, ResolvedConfig } from "./types.js";
 import { resolveConfig, NEPTUNE_UNSUPPORTED } from "./types.js";
 import { guardQuery, lintQuery } from "./guard.js";
-import { parseMultiLabel, HIDDEN_LABELS_KEY, LABEL_DELIM } from "./multilabel.js";
+import { LABEL_DELIM } from "./multilabel.js";
 import { createNeptuneTraversal } from "./neptune-traversal.js";
 
 const { driver, process: gprocess } = gremlin;
@@ -30,9 +30,7 @@ export class NeptuneSandbox {
    */
   async connect(): Promise<GremlinTraversalSource> {
     this.connection = new DriverRemoteConnection(this.config.endpoint);
-    const { Source, Traversal, statics } = createNeptuneTraversal({
-      multiLabelStrategy: this.config.multiLabelStrategy,
-    });
+    const { Source, Traversal, statics } = createNeptuneTraversal();
     this._g = gprocess.traversal(Source, Traversal).withRemote(this.connection);
     this._statics = statics;
     return this._g;
@@ -74,13 +72,10 @@ export class NeptuneSandbox {
 
   /**
    * Add a vertex with Neptune-style multi-labels.
+   * Auto-generates a UUID string ID if none provided (matching Neptune behavior).
    *
    * Usage:
    *   await sandbox.addV("Person::Employee", { name: "Alice", age: 30 }, "custom-id-1")
-   *
-   * With "delimiter" strategy: stores label as "Person::Employee" natively.
-   * With "property" strategy: stores label as "Person::Employee" AND writes
-   *   __labels property with set cardinality for each component.
    */
   async addV(
     label: string,
@@ -93,9 +88,6 @@ export class NeptuneSandbox {
     // Set vertex ID — explicit or auto-generated UUID (matching Neptune behavior)
     t = t.property(gprocess.t.id, id ?? randomUUID());
 
-    // Multi-label __labels properties are handled by the NeptuneGraphTraversalSource
-    // override (see neptune-traversal.ts). No need to add them here.
-
     // Write user properties (cardinality defaults handled by NeptuneGraphTraversal)
     if (properties) {
       for (const [key, value] of Object.entries(properties)) {
@@ -104,37 +96,6 @@ export class NeptuneSandbox {
     }
 
     return t.next();
-  }
-
-  /**
-   * Query vertices by a single label, respecting multi-label semantics.
-   *
-   * Usage:
-   *   const people = await sandbox.V_byLabel("Person").toList()
-   *
-   * With "delimiter" strategy: returns a filtered traversal using a has() filter
-   * on the native label containing the target label as a :: component.
-   *
-   * With "property" strategy: uses has("__labels", label).
-   */
-  V_byLabel(label: string) {
-    const g = this.g;
-    if (this.config.multiLabelStrategy === "property") {
-      return g.V().has(HIDDEN_LABELS_KEY, label);
-    }
-    // Delimiter strategy: filter with a traversal that checks the native label
-    // We use filter + label().is(containing(label)) but since Gremlin doesn't have
-    // a native "contains substring" that respects :: boundaries, we use a workaround:
-    // Vertices whose label is exactly `label` OR contains `::label::` or starts with `label::` or ends with `::label`
-    const __ = gprocess.statics;
-    return g.V().filter(
-      __.or(
-        __.label().is(gprocess.P.eq(label)),
-        __.label().is(gprocess.TextP.startingWith(`${label}${LABEL_DELIM}`)),
-        __.label().is(gprocess.TextP.endingWith(`${LABEL_DELIM}${label}`)),
-        __.label().is(gprocess.TextP.containing(`${LABEL_DELIM}${label}${LABEL_DELIM}`)),
-      )
-    );
   }
 
   // -------------------------------------------------------------------
@@ -183,11 +144,9 @@ export {
   parseMultiLabel,
   joinMultiLabel,
   delimiterHasLabel,
-  rewriteHasLabel,
-  HIDDEN_LABELS_KEY,
   LABEL_DELIM,
 } from "./multilabel.js";
-export type { NeptuneTinkerConfig, ResolvedConfig, GuardMode, MultiLabelStrategy } from "./types.js";
+export type { NeptuneTinkerConfig, ResolvedConfig, GuardMode } from "./types.js";
 export type { GuardViolation } from "./guard.js";
 export { resolveConfig, resolveEndpoint, NEPTUNE_UNSUPPORTED, DEFAULT_HOST, DEFAULT_PORT } from "./types.js";
 export {
@@ -201,4 +160,3 @@ export {
 } from "./sandbox.js";
 export type { SandboxOptions } from "./sandbox.js";
 export { createNeptuneTraversal } from "./neptune-traversal.js";
-export type { NeptuneTraversalConfig } from "./neptune-traversal.js";

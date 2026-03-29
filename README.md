@@ -9,7 +9,7 @@ Amazon Neptune implements a **subset** of Apache TinkerPop Gremlin, plus **multi
 `neptune-tinker` solves this with:
 
 1. **Docker sandbox** — TinkerGraph Gremlin Server, one command to start
-2. **Multi-label middleware** — emulates Neptune's `::` multi-label semantics on TinkerGraph (two strategies: delimiter-based or property-based)
+2. **Multi-label middleware** — emulates Neptune's `::` multi-label semantics on TinkerGraph
 3. **Compatibility guard** — lints Gremlin queries against Neptune's constraints, catches incompatible patterns before they reach production
 4. **Claude skills** — documentation and review procedures that make Claude aware of Neptune's quirks, so generated code stays compatible
 
@@ -46,7 +46,7 @@ pnpm run sandbox:repl
 ```
 neptune> await sandbox.addV("Person::Employee", { name: "Alice" }, "a1")
 neptune> await sandbox.addV("Person::Manager", { name: "Bob" }, "b1")
-neptune> await sandbox.V_byLabel("Person").toList()    // matches both
+neptune> await g.V().hasLabel("Person").toList()         // matches both
 neptune> await g.V().count().next()                     // raw Gremlin via g
 neptune> lint("g.V(123)")                               // lint a query string
 neptune> guard("g.V(123)")                              // throws NeptuneCompatError
@@ -110,7 +110,7 @@ const sandbox = new NeptuneSandbox();
 await sandbox.connect();
 
 await sandbox.addV('Person::Employee', { name: 'Alice', age: 30 }, 'alice-1');
-const people = await sandbox.V_byLabel('Person').toList();
+const people = await g.V().hasLabel('Person').toList();
 
 const issues = sandbox.lint(`g.V(123).hasLabel('A::B')`);
 // → [{ rule: 'string-ids-only', ... }, { rule: 'no-hasLabel-with-delimiter', ... }]
@@ -152,7 +152,6 @@ The sandbox exposes Gremlin Server on the configured port. A Claude Code MCP too
 | `host` | `"localhost"` | Gremlin Server host |
 | `port` | `8182` | Gremlin Server port |
 | `endpoint` | derived from host/port | Full WebSocket URL (overrides host/port) |
-| `multiLabelStrategy` | `"delimiter"` | `"delimiter"` stores `A::B::C` as the native label; `"property"` uses a hidden `__labels` property |
 | `guardMode` | `"strict"` | `"strict"` throws on violations; `"loose"` warns only |
 
 ### Docker Compose (env vars)
@@ -187,7 +186,7 @@ The traversal source returned by `sandbox.connect()` intercepts these steps to a
 
 | Step | Behavior |
 |------|----------|
-| `g.addV("A::B")` | Multi-label emulation (property strategy adds `__labels`) |
+| `g.addV("A::B")` | Multi-label emulation via `::` delimiter |
 | `g.V().hasLabel("A")` | Multi-label matching (matches `"A::B::C"` vertices) |
 | `g.V().has("A", "key", "val")` | Routes through multi-label `hasLabel` |
 | `g.V().has(t.label, "A")` | Routes through multi-label `hasLabel` |
@@ -198,7 +197,6 @@ The traversal source returned by `sandbox.connect()` intercepts these steps to a
 - **Anonymous traversals** — Use `sandbox.__` (or `const __ = sandbox.__`) instead of `gprocess.statics` for multi-label-aware anonymous traversals inside `where()`, `filter()`, `not()`.
 - **Auto-generated IDs** — `sandbox.addV()` auto-generates UUID string IDs (matching Neptune). Raw `g.addV()` uses TinkerGraph's numeric IDs — always chain `.property(t.id, "my-id")` when using raw `g`.
 - **Guard on bytecode** — The `lint()`/`guard()` functions only check string queries. Bytecode queries (the normal `g.V()...` API) are handled by the traversal overrides instead.
-- **`__labels` visibility** — With the `"property"` multi-label strategy, the internal `__labels` property is visible in `valueMap()` results. Use the default `"delimiter"` strategy to avoid this.
 
 ## Architecture
 
@@ -209,7 +207,7 @@ The traversal source returned by `sandbox.connect()` intercepts these steps to a
 │  ┌──────────────┐  ┌────────────────┐   │
 │  │ NeptuneSandbox│  │  Guard / Lint  │   │
 │  │  .addV()     │  │  .lint(query)  │   │
-│  │  .V_byLabel()│  │  .guard(query) │   │
+│  │  .addV()     │  │  .guard(query) │   │
 │  └──────┬───────┘  └────────────────┘   │
 │         │                               │
 │  ┌──────▼───────┐                       │

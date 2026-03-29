@@ -1,28 +1,21 @@
 import gremlin from "gremlin";
-import type { MultiLabelStrategy } from "./types.js";
-import { parseMultiLabel, HIDDEN_LABELS_KEY, LABEL_DELIM } from "./multilabel.js";
+import { LABEL_DELIM } from "./multilabel.js";
 
 const { process: gprocess } = gremlin;
 const { GraphTraversalSource, GraphTraversal, P, TextP, cardinality, t, statics: __ } = gprocess;
 
-export interface NeptuneTraversalConfig {
-  multiLabelStrategy: MultiLabelStrategy;
-}
-
 /**
  * Creates Neptune-aware GraphTraversalSource and GraphTraversal subclasses
  * that transparently handle:
- * - Multi-label emulation (delimiter or property strategy)
+ * - Multi-label emulation via :: delimiter matching
  * - Default set cardinality (Neptune's default, vs TinkerGraph's list default)
  *
  * Usage:
- *   const { Source, Traversal } = createNeptuneTraversal(config);
+ *   const { Source, Traversal } = createNeptuneTraversal();
  *   const g = gprocess.traversal(Source, Traversal).withRemote(connection);
  *   // g is now a drop-in replacement that behaves like Neptune
  */
-export function createNeptuneTraversal(config: NeptuneTraversalConfig) {
-  const strategy = config.multiLabelStrategy;
-
+export function createNeptuneTraversal() {
   class NeptuneGraphTraversal extends GraphTraversal {
     /**
      * Override property() to default to set cardinality (Neptune behavior).
@@ -31,7 +24,6 @@ export function createNeptuneTraversal(config: NeptuneTraversalConfig) {
      */
     property(...args: unknown[]) {
       if (args.length >= 2 && typeof args[0] === "string") {
-        // No cardinality specified — inject set (Neptune default)
         return super.property(cardinality.set, ...args);
       }
       return super.property(...args);
@@ -43,15 +35,9 @@ export function createNeptuneTraversal(config: NeptuneTraversalConfig) {
      * TinkerGraph: hasLabel("Person") does NOT match label "Person::Employee".
      */
     hasLabel(...args: unknown[]) {
-      // Only intercept single string label without :: (the common case)
       if (args.length === 1 && typeof args[0] === "string" && !args[0].includes(LABEL_DELIM)) {
         const label = args[0] as string;
-
-        if (strategy === "property") {
-          return super.has(HIDDEN_LABELS_KEY, label);
-        }
-
-        // Delimiter strategy: match label as a :: component with boundary checks.
+        // Match label as a :: component with boundary checks.
         // "Person" matches "Person", "Person::Employee", "Employee::Person", "A::Person::B"
         // but NOT "PersonAdmin::Manager" (substring false-match prevention).
         return super.filter(
@@ -67,18 +53,14 @@ export function createNeptuneTraversal(config: NeptuneTraversalConfig) {
     }
 
     /**
-     * Override has() to intercept the 3-arg form has(label, key, value).
-     * In Gremlin, has("Person", "name", "Alice") means hasLabel("Person").has("name", "Alice").
-     * We need the hasLabel part to go through our multi-label-aware override.
+     * Override has() to intercept label-related forms:
+     * - has(T.label, value) — routes through multi-label hasLabel()
+     * - has(label, key, value) — routes through multi-label hasLabel() + has(key, value)
      */
     has(...args: unknown[]) {
-      // 2-arg form: has(T.label, value) — direct label access
-      // Route through our hasLabel override for multi-label matching.
       if (args.length === 2 && args[0] === t.label && typeof args[1] === "string") {
         return this.hasLabel(args[1]);
       }
-      // 3-arg form: has(label, key, value/predicate)
-      // In Gremlin, has("Person", "name", "Alice") means hasLabel("Person").has("name", "Alice").
       if (args.length === 3 && typeof args[0] === "string" && typeof args[1] === "string") {
         const [label, key, value] = args;
         return this.hasLabel(label).has(key, value);
@@ -87,35 +69,17 @@ export function createNeptuneTraversal(config: NeptuneTraversalConfig) {
     }
 
     /**
-     * Override mid-traversal addV() to apply multi-label property strategy.
+     * Override mid-traversal addV().
      */
     addV(...args: unknown[]) {
       super.addV(...args);
-      const label = args[0];
-      if (strategy === "property" && typeof label === "string" && label.includes(LABEL_DELIM)) {
-        for (const l of parseMultiLabel(label)) {
-          super.property(cardinality.set, HIDDEN_LABELS_KEY, l);
-        }
-      }
       return this;
     }
   }
 
   class NeptuneGraphTraversalSource extends GraphTraversalSource {
-    /**
-     * Override addV() to apply multi-label property strategy.
-     * With "property" strategy, addV("A::B") automatically adds
-     * .property(set, "__labels", "A").property(set, "__labels", "B")
-     */
     addV(...args: unknown[]) {
-      let traversal = super.addV(...args);
-      const label = args[0];
-      if (strategy === "property" && typeof label === "string" && label.includes(LABEL_DELIM)) {
-        for (const l of parseMultiLabel(label)) {
-          traversal = traversal.property(cardinality.set, HIDDEN_LABELS_KEY, l);
-        }
-      }
-      return traversal;
+      return super.addV(...args);
     }
   }
 
@@ -123,9 +87,6 @@ export function createNeptuneTraversal(config: NeptuneTraversalConfig) {
   // Standard gprocess.statics creates base GraphTraversal instances that
   // bypass our overrides. This Proxy creates NeptuneGraphTraversal instead,
   // so __.hasLabel("Person") inside where()/filter()/not() uses multi-label matching.
-  //
-  // Get the Bytecode constructor from the gremlin internals — needed to create
-  // empty traversals (the Traversal constructor doesn't default bytecode).
   const BytecodeClass = (__.identity() as unknown as { bytecode: { constructor: new () => unknown } }).bytecode.constructor;
 
   const neptuneStatics = new Proxy({} as Record<string, (...args: unknown[]) => unknown>, {

@@ -1,11 +1,5 @@
 export type GuardMode = "strict" | "loose";
 
-/**
- * "property" - stores labels in a `__labels` Set<string> property, intercepts label()/hasLabel()
- * "delimiter" - stores as `A::B::C` in the native label, patches hasLabel() to split and match
- */
-export type MultiLabelStrategy = "property" | "delimiter";
-
 export interface NeptuneTinkerConfig {
   /** Gremlin Server host. Default: "localhost" */
   host?: string;
@@ -18,9 +12,6 @@ export interface NeptuneTinkerConfig {
    * Default: derived as `ws://${host}:${port}/gremlin`
    */
   endpoint?: string;
-
-  /** How to emulate Neptune multi-labels on TinkerGraph */
-  multiLabelStrategy?: MultiLabelStrategy;
 
   /** "strict" throws on unsupported Neptune patterns, "loose" warns */
   guardMode?: GuardMode;
@@ -40,7 +31,6 @@ export type ResolvedConfig = {
   host: string;
   port: number;
   endpoint: string;
-  multiLabelStrategy: MultiLabelStrategy;
   guardMode: GuardMode;
 };
 
@@ -51,7 +41,6 @@ export function resolveConfig(config: NeptuneTinkerConfig = {}): ResolvedConfig 
     host,
     port,
     endpoint: config.endpoint ?? `ws://${host}:${port}/gremlin`,
-    multiLabelStrategy: config.multiLabelStrategy ?? "delimiter",
     guardMode: config.guardMode ?? "strict",
   };
 }

@@ -19,7 +19,7 @@ console.log("    __        — Neptune-aware anonymous traversal helpers");
 console.log("");
 console.log("  Examples:");
 console.log('    await sandbox.addV("Person::Employee", { name: "Alice" }, "a1")');
-console.log('    await sandbox.V_byLabel("Person").toList()');
+console.log('    await g.V().hasLabel("Person").toList()');
 console.log('    await g.V().count().next()');
 console.log('    await g.V().where(__.hasLabel("Person")).toList()');
 console.log('    lint("g.V(123)")');
