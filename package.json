@@ -2,6 +2,14 @@
   "name": "neptune-tinker",
   "version": "0.1.0",
   "description": "Neptune-compatible local sandbox using TinkerGraph. Claude-first dev tooling.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RivalSecurity/neptune-tinker.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -17,13 +25,14 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "sandbox:start": "neptune-tinker start",
-    "sandbox:stop": "neptune-tinker stop",
-    "sandbox:reset": "neptune-tinker reset",
-    "sandbox:health": "neptune-tinker health",
-    "sandbox:logs": "neptune-tinker logs",
-    "sandbox:console": "neptune-tinker console",
-    "sandbox:repl": "neptune-tinker repl"
+    "sandbox:start": "node bin/neptune-tinker.mjs start",
+    "sandbox:stop": "node bin/neptune-tinker.mjs stop",
+    "sandbox:reset": "node bin/neptune-tinker.mjs reset",
+    "sandbox:health": "node bin/neptune-tinker.mjs health",
+    "sandbox:logs": "node bin/neptune-tinker.mjs logs",
+    "sandbox:console": "node bin/neptune-tinker.mjs console",
+    "sandbox:repl": "node bin/neptune-tinker.mjs repl",
+    "prepublishOnly": "tsc"
   },
   "dependencies": {
     "gremlin": "^3.7.2"

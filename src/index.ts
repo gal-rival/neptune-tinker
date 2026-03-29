@@ -77,18 +77,13 @@ export class NeptuneSandbox {
       t = t.property(gprocess.t.id, id);
     }
 
-    // Property strategy: write hidden label components
-    if (this.config.multiLabelStrategy === "property") {
-      const labels = parseMultiLabel(label);
-      for (const l of labels) {
-        t = t.property(gprocess.cardinality.set, HIDDEN_LABELS_KEY, l);
-      }
-    }
+    // Multi-label __labels properties are handled by the NeptuneGraphTraversalSource
+    // override (see neptune-traversal.ts). No need to add them here.
 
-    // Write user properties with set cardinality (Neptune default)
+    // Write user properties (cardinality defaults handled by NeptuneGraphTraversal)
     if (properties) {
       for (const [key, value] of Object.entries(properties)) {
-        t = t.property(gprocess.cardinality.set, key, value);
+        t = t.property(key, value);
       }
     }
 
@@ -119,8 +114,9 @@ export class NeptuneSandbox {
     return g.V().filter(
       __.or(
         __.label().is(gprocess.P.eq(label)),
-        __.label().is(gprocess.TextP.containing(`${LABEL_DELIM}${label}`)),
-        __.label().is(gprocess.TextP.containing(`${label}${LABEL_DELIM}`)),
+        __.label().is(gprocess.TextP.startingWith(`${label}${LABEL_DELIM}`)),
+        __.label().is(gprocess.TextP.endingWith(`${LABEL_DELIM}${label}`)),
+        __.label().is(gprocess.TextP.containing(`${LABEL_DELIM}${label}${LABEL_DELIM}`)),
       )
     );
   }

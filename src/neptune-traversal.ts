@@ -51,17 +51,34 @@ export function createNeptuneTraversal(config: NeptuneTraversalConfig) {
           return super.has(HIDDEN_LABELS_KEY, label);
         }
 
-        // Delimiter strategy: match label as a :: component
+        // Delimiter strategy: match label as a :: component with boundary checks.
         // "Person" matches "Person", "Person::Employee", "Employee::Person", "A::Person::B"
+        // but NOT "PersonAdmin::Manager" (substring false-match prevention).
         return super.filter(
           __.or(
             __.label().is(P.eq(label)),
-            __.label().is(TextP.containing(LABEL_DELIM + label)),
-            __.label().is(TextP.containing(label + LABEL_DELIM)),
+            __.label().is(TextP.startingWith(label + LABEL_DELIM)),
+            __.label().is(TextP.endingWith(LABEL_DELIM + label)),
+            __.label().is(TextP.containing(LABEL_DELIM + label + LABEL_DELIM)),
           ),
         );
       }
       return super.hasLabel(...args);
+    }
+
+    /**
+     * Override has() to intercept the 3-arg form has(label, key, value).
+     * In Gremlin, has("Person", "name", "Alice") means hasLabel("Person").has("name", "Alice").
+     * We need the hasLabel part to go through our multi-label-aware override.
+     */
+    has(...args: unknown[]) {
+      // 3-arg form: has(label, key, value/predicate)
+      if (args.length === 3 && typeof args[0] === "string" && typeof args[1] === "string") {
+        const [label, key, value] = args;
+        // Route through our hasLabel override, then chain has(key, value)
+        return this.hasLabel(label).has(key, value);
+      }
+      return super.has(...args);
     }
 
     /**

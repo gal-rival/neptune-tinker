@@ -57,7 +57,8 @@ export function lintQuery(query: string, mode: GuardMode = "strict"): GuardViola
   }
 
   // ---- graph object ----
-  if (/\bgraph\b/.test(query)) {
+  // Match `graph.` (object access), not "graph" in string values
+  if (/\bgraph\s*\./.test(query)) {
     violations.push({
       rule: "no-graph-object",
       message: "Neptune does not expose the `graph` object. Use `g` traversal only.",

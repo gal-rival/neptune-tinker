@@ -18,7 +18,7 @@ services:
       retries: 10
 
   gremlin-console:
-    image: ${NEPTUNE_TINKER_IMAGE:-tinkerpop/gremlin-console:3.7.2}
+    image: ${NEPTUNE_TINKER_CONSOLE_IMAGE:-tinkerpop/gremlin-console:3.7.2}
     container_name: ${NEPTUNE_TINKER_CONTAINER:-neptune-tinker}-console
     volumes:
       - ./remote-console.yaml:/opt/gremlin-console/conf/remote.yaml:ro
