@@ -16,40 +16,78 @@ Amazon Neptune implements a **subset** of Apache TinkerPop Gremlin, plus **multi
 ## Quick Start
 
 ```bash
-# Start the sandbox (default port 8182)
-npm run sandbox:start
+# Install
+pnpm install
 
-# Or on a custom port
-NEPTUNE_TINKER_PORT=9182 npm run sandbox:start
+# Build TypeScript
+pnpm run build
+
+# Start the sandbox (default port 8182)
+pnpm run sandbox:start
 
 # Tail logs
-npm run sandbox:logs
+pnpm run sandbox:logs
 
 # Reset (clears all in-memory data)
-npm run sandbox:reset
+pnpm run sandbox:reset
 
 # Stop
-npm run sandbox:stop
+pnpm run sandbox:stop
 ```
+
+### Interactive REPL (recommended)
+
+The REPL drops you into a Node.js session with the middleware pre-loaded and connected:
+
+```bash
+pnpm run sandbox:repl
+```
+
+```
+neptune> await sandbox.addV("Person::Employee", { name: "Alice" }, "a1")
+neptune> await sandbox.addV("Person::Manager", { name: "Bob" }, "b1")
+neptune> await sandbox.V_byLabel("Person").toList()    // matches both
+neptune> await g.V().count().next()                     // raw Gremlin via g
+neptune> lint("g.V(123)")                               // lint a query string
+neptune> guard("g.V(123)")                              // throws NeptuneCompatError
+```
+
+Available globals:
+- `sandbox` — connected `NeptuneSandbox` instance
+- `g` — Gremlin traversal source (for raw bytecode queries)
+- `lint(query)` — check a Gremlin string for Neptune violations
+- `guard(query)` — same, but throws in strict mode
+
+### Gremlin Console
+
+For raw Gremlin (Groovy syntax, no middleware):
+
+```bash
+pnpm run sandbox:console
+```
+
+Auto-connects to the server — start querying immediately:
+
+```groovy
+g.addV('Person').property('name', 'Alice').property(id, 'a1')
+g.V().valueMap(true)
+```
+
+### In your own code
 
 ```typescript
 import { NeptuneSandbox } from 'neptune-tinker';
 
 const sandbox = new NeptuneSandbox({
-  port: 9182,                        // must match the script port
   multiLabelStrategy: 'delimiter',   // or 'property'
   guardMode: 'strict',               // or 'loose'
 });
 
 await sandbox.connect();
 
-// Create a multi-label vertex (Neptune-style)
 await sandbox.addV('Person::Employee', { name: 'Alice', age: 30 }, 'alice-1');
-
-// Query by single label component
 const people = await sandbox.V_byLabel('Person').toList();
 
-// Lint a raw query
 const issues = sandbox.lint(`g.V(123).hasLabel('A::B')`);
 // → [{ rule: 'string-ids-only', ... }, { rule: 'no-hasLabel-with-delimiter', ... }]
 
@@ -89,7 +127,7 @@ The sandbox exposes Gremlin Server on the configured port. A Claude Code MCP too
 | `NEPTUNE_TINKER_CONTAINER` | `neptune-tinker` | Docker container name |
 | `NEPTUNE_TINKER_IMAGE` | `tinkerpop/gremlin-server:3.7.2` | Docker image |
 
-Set via env vars inline, in a `.env` file alongside `scripts/docker-compose.yml`, or in your shell profile. See `scripts/.env.example`.
+Set via env vars inline (e.g. `NEPTUNE_TINKER_PORT=9182 pnpm run sandbox:start`), in a `.env` file alongside `scripts/docker-compose.yml`, or in your shell profile.
 
 ## Neptune vs TinkerGraph — Key Differences
 
