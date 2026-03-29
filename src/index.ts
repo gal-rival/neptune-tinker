@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import gremlin from "gremlin";
 import type { NeptuneTinkerConfig, ResolvedConfig } from "./types.js";
 import { resolveConfig, NEPTUNE_UNSUPPORTED } from "./types.js";
@@ -16,6 +17,7 @@ export class NeptuneSandbox {
   readonly config: ResolvedConfig;
   private connection: GremlinConnection | null = null;
   private _g: GremlinTraversalSource | null = null;
+  private _statics: Record<string, (...args: unknown[]) => unknown> | null = null;
 
   constructor(config: NeptuneTinkerConfig = {}) {
     this.config = resolveConfig(config);
@@ -28,10 +30,11 @@ export class NeptuneSandbox {
    */
   async connect(): Promise<GremlinTraversalSource> {
     this.connection = new DriverRemoteConnection(this.config.endpoint);
-    const { Source, Traversal } = createNeptuneTraversal({
+    const { Source, Traversal, statics } = createNeptuneTraversal({
       multiLabelStrategy: this.config.multiLabelStrategy,
     });
     this._g = gprocess.traversal(Source, Traversal).withRemote(this.connection);
+    this._statics = statics;
     return this._g;
   }
 
@@ -39,6 +42,21 @@ export class NeptuneSandbox {
   get g(): GremlinTraversalSource {
     if (!this._g) throw new Error("Not connected. Call connect() first.");
     return this._g;
+  }
+
+  /**
+   * Neptune-aware anonymous traversal helpers.
+   * Use `sandbox.__` instead of `gprocess.statics` / `__` so that
+   * hasLabel(), has(), property() inside where()/filter()/not()
+   * use multi-label matching and set cardinality.
+   *
+   * Example:
+   *   const __ = sandbox.__;
+   *   g.V().where(__.hasLabel("Person")).toList()
+   */
+  get __(): Record<string, (...args: unknown[]) => unknown> {
+    if (!this._statics) throw new Error("Not connected. Call connect() first.");
+    return this._statics;
   }
 
   /** Close the connection. */
@@ -72,10 +90,8 @@ export class NeptuneSandbox {
     const g = this.g;
     let t = g.addV(label);
 
-    // User-supplied ID (Neptune supports this)
-    if (id !== undefined) {
-      t = t.property(gprocess.t.id, id);
-    }
+    // Set vertex ID — explicit or auto-generated UUID (matching Neptune behavior)
+    t = t.property(gprocess.t.id, id ?? randomUUID());
 
     // Multi-label __labels properties are handled by the NeptuneGraphTraversalSource
     // override (see neptune-traversal.ts). No need to add them here.

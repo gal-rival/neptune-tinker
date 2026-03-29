@@ -119,8 +119,32 @@ export function createNeptuneTraversal(config: NeptuneTraversalConfig) {
     }
   }
 
+  // Neptune-aware anonymous traversal helpers (statics / __).
+  // Standard gprocess.statics creates base GraphTraversal instances that
+  // bypass our overrides. This Proxy creates NeptuneGraphTraversal instead,
+  // so __.hasLabel("Person") inside where()/filter()/not() uses multi-label matching.
+  //
+  // Get the Bytecode constructor from the gremlin internals — needed to create
+  // empty traversals (the Traversal constructor doesn't default bytecode).
+  const BytecodeClass = (__.identity() as unknown as { bytecode: { constructor: new () => unknown } }).bytecode.constructor;
+
+  const neptuneStatics = new Proxy({} as Record<string, (...args: unknown[]) => unknown>, {
+    get(_target, prop) {
+      if (typeof prop !== "string") return undefined;
+      return (...args: unknown[]) => {
+        const traversal = new NeptuneGraphTraversal(null, null, new BytecodeClass());
+        const fn = (traversal as unknown as Record<string, unknown>)[prop];
+        if (typeof fn === "function") {
+          return (fn as Function).apply(traversal, args);
+        }
+        return undefined;
+      };
+    },
+  });
+
   return {
     Source: NeptuneGraphTraversalSource,
     Traversal: NeptuneGraphTraversal,
+    statics: neptuneStatics,
   };
 }

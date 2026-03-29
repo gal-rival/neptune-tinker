@@ -195,8 +195,8 @@ The traversal source returned by `sandbox.connect()` intercepts these steps to a
 
 ### What it does NOT handle
 
-- **Anonymous traversals** — `__.hasLabel("Person")` inside `where()`, `filter()`, `not()` etc. creates a standard Gremlin traversal that does NOT use multi-label matching. Use the methods on `g` directly instead of nesting label checks in anonymous traversals.
-- **Auto-generated IDs** — TinkerGraph auto-generates numeric Long IDs that the JS driver can't look up. Always specify string IDs explicitly (this is Neptune-compatible anyway).
+- **Anonymous traversals** — Use `sandbox.__` (or `const __ = sandbox.__`) instead of `gprocess.statics` for multi-label-aware anonymous traversals inside `where()`, `filter()`, `not()`.
+- **Auto-generated IDs** — `sandbox.addV()` auto-generates UUID string IDs (matching Neptune). Raw `g.addV()` uses TinkerGraph's numeric IDs — always chain `.property(t.id, "my-id")` when using raw `g`.
 - **Guard on bytecode** — The `lint()`/`guard()` functions only check string queries. Bytecode queries (the normal `g.V()...` API) are handled by the traversal overrides instead.
 - **`__labels` visibility** — With the `"property"` multi-label strategy, the internal `__labels` property is visible in `valueMap()` results. Use the default `"delimiter"` strategy to avoid this.
 
