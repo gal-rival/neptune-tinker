@@ -95,16 +95,15 @@ describe.skipIf(!dockerAvailable)("neptune-traversal", () => {
       expect(results).not.toContain("Alice");
     });
 
-    it("hasLabel('Person::Employee') passes through (native TinkerGraph match)", async () => {
-      // In Neptune hasLabel("A::B") doesn't match, but our guard catches this.
-      // The traversal override only intercepts single labels without ::
-      // so this passes through to native TinkerGraph which does exact match.
+    it("hasLabel('Person::Employee') returns empty (Neptune behavior)", async () => {
+      // Neptune: hasLabel("A::B") does NOT match — :: delimiter is only for addV().
+      // Our override returns empty to match Neptune semantics.
       const results = await sandbox.g
         .V()
         .hasLabel("Person::Employee")
         .values("name")
         .toList();
-      expect(results).toContain("Alice");
+      expect(results).toEqual([]);
     });
 
     it("substring safety: hasLabel('Person') does NOT match 'PersonAdmin::Manager'", async () => {

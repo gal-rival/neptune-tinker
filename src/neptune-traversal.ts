@@ -35,8 +35,15 @@ export function createNeptuneTraversal() {
      * TinkerGraph: hasLabel("Person") does NOT match label "Person::Employee".
      */
     hasLabel(...args: unknown[]) {
-      if (args.length === 1 && typeof args[0] === "string" && !args[0].includes(LABEL_DELIM)) {
+      if (args.length === 1 && typeof args[0] === "string") {
         const label = args[0] as string;
+
+        if (label.includes(LABEL_DELIM)) {
+          // Neptune: hasLabel("A::B") does NOT match — it's treated as a literal
+          // that won't equal any single-component label. Return empty.
+          return super.limit(0);
+        }
+
         // Match label as a :: component with boundary checks.
         // "Person" matches "Person", "Person::Employee", "Employee::Person", "A::Person::B"
         // but NOT "PersonAdmin::Manager" (substring false-match prevention).
