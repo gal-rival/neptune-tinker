@@ -10,6 +10,8 @@ export interface SandboxOptions {
   port?: number;
   container?: string;
   image?: string;
+  /** Persist graph data across restarts. Default: true. Set false for fast in-memory mode. */
+  persist?: boolean;
 }
 
 function buildEnv(opts?: SandboxOptions): NodeJS.ProcessEnv {
@@ -17,6 +19,7 @@ function buildEnv(opts?: SandboxOptions): NodeJS.ProcessEnv {
   if (opts?.port) env.NEPTUNE_TINKER_PORT = String(opts.port);
   if (opts?.container) env.NEPTUNE_TINKER_CONTAINER = opts.container;
   if (opts?.image) env.NEPTUNE_TINKER_IMAGE = opts.image;
+  if (opts?.persist === false) env.NEPTUNE_TINKER_PERSIST = "false";
   return env;
 }
 

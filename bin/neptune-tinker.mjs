@@ -10,12 +10,14 @@ const root = join(__dirname, "..");
 const args = process.argv.slice(2);
 const command = args[0];
 
-// Parse --port flag
+// Parse flags
 const portIdx = args.indexOf("--port");
 const port = portIdx !== -1 ? args[portIdx + 1] : undefined;
+const noPersist = args.includes("--no-persist");
 
 const env = { ...process.env };
 if (port) env.NEPTUNE_TINKER_PORT = port;
+if (noPersist) env.NEPTUNE_TINKER_PERSIST = "false";
 
 const composefile = join(root, "scripts", "docker-compose.yml");
 const compose = (cmd) => `docker compose -f "${composefile}" ${cmd}`;
@@ -48,7 +50,7 @@ async function importCmd() {
 const commands = {
   start: () => run(compose("up -d --wait")),
   stop: () => run(compose("down")),
-  reset: () => { run(compose("down")); run(compose("up -d --wait")); },
+  reset: () => { run(compose("down -v")); run(compose("up -d --wait")); },
   health: () => run(compose("ps")),
   logs: () => run(compose("logs -f")),
   console: () => run(compose("run --rm gremlin-console")),
@@ -57,17 +59,21 @@ const commands = {
 };
 
 if (!command || !commands[command]) {
-  console.log(`Usage: neptune-tinker <command> [--port <port>]
+  console.log(`Usage: neptune-tinker <command> [options]
 
 Commands:
   start     Start the Gremlin Server sandbox
   stop      Stop the sandbox
-  reset     Reset the sandbox (stop + start, clears data)
+  reset     Reset the sandbox (stop + start, clears all data)
   health    Show sandbox container status
   logs      Tail sandbox logs
   console   Open Gremlin Console (raw Gremlin, auto-connected)
   repl      Open Node.js REPL with middleware loaded
-  import    Import data from JSON file: neptune-tinker import <file.json>`);
+  import    Import data from JSON file: neptune-tinker import <file.json>
+
+Options:
+  --port <port>    Use a custom port (default: 8182)
+  --no-persist     In-memory only, no data persistence (faster)`);
   process.exit(command ? 1 : 0);
 }
 

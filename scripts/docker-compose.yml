@@ -7,10 +7,21 @@ services:
     volumes:
       - ./gremlin-server.yaml:/opt/gremlin-server/custom-conf/gremlin-server.yaml:ro
       - ./tinkergraph.properties:/opt/gremlin-server/custom-conf/tinkergraph.properties:ro
+      - ./neptune-init.groovy:/opt/gremlin-server/scripts/neptune-init.groovy:ro
+      - neptune-tinker-data:/opt/gremlin-server/data
+    environment:
+      - NEPTUNE_TINKER_PERSIST=${NEPTUNE_TINKER_PERSIST:-true}
     entrypoint: >
       bash -c "cp /opt/gremlin-server/custom-conf/gremlin-server.yaml /opt/gremlin-server/conf/gremlin-server.yaml &&
       cp /opt/gremlin-server/custom-conf/tinkergraph.properties /opt/gremlin-server/conf/tinkergraph.properties &&
-      /opt/gremlin-server/bin/gremlin-server.sh conf/gremlin-server.yaml"
+      if [ \"$$NEPTUNE_TINKER_PERSIST\" != 'true' ]; then
+        sed -i '/graphLocation/d; /graphFormat/d' /opt/gremlin-server/conf/tinkergraph.properties;
+      fi &&
+      exec java -Dlogback.configurationFile=file:/opt/gremlin-server/conf/logback.xml
+      -Xms512m -Xmx4096m
+      -cp '/opt/gremlin-server/conf/:/opt/gremlin-server/lib/*:/opt/gremlin-server/ext/tinkergraph-gremlin/lib/*:/opt/gremlin-server/ext/gremlin-groovy/lib/*'
+      org.apache.tinkerpop.gremlin.server.GremlinServer conf/gremlin-server.yaml"
+    stop_grace_period: 10s
     healthcheck:
       test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/8182' || exit 1"]
       interval: 5s
@@ -31,3 +42,6 @@ services:
     tty: true
     profiles:
       - console
+
+volumes:
+  neptune-tinker-data:
