@@ -65,7 +65,6 @@ describe("resolveConfig", () => {
       expect(config.host).toBe("localhost");
       expect(config.port).toBe(8182);
       expect(config.endpoint).toBe("ws://localhost:8182/gremlin");
-      expect(config.multiLabelStrategy).toBe("delimiter");
       expect(config.guardMode).toBe("strict");
     });
 
@@ -74,7 +73,6 @@ describe("resolveConfig", () => {
       expect(config.host).toBe("localhost");
       expect(config.port).toBe(8182);
       expect(config.endpoint).toBe("ws://localhost:8182/gremlin");
-      expect(config.multiLabelStrategy).toBe("delimiter");
       expect(config.guardMode).toBe("strict");
     });
   });
@@ -104,11 +102,6 @@ describe("resolveConfig", () => {
       expect(config.port).toBe(1111);
     });
 
-    it("uses property strategy when specified", () => {
-      const config = resolveConfig({ multiLabelStrategy: "property" });
-      expect(config.multiLabelStrategy).toBe("property");
-    });
-
     it("uses loose guard mode when specified", () => {
       const config = resolveConfig({ guardMode: "loose" });
       expect(config.guardMode).toBe("loose");
@@ -121,7 +114,6 @@ describe("resolveConfig", () => {
       expect(config.host).toBeDefined();
       expect(config.port).toBeDefined();
       expect(config.endpoint).toBeDefined();
-      expect(config.multiLabelStrategy).toBeDefined();
       expect(config.guardMode).toBeDefined();
     });
   });

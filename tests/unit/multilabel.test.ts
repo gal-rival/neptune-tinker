@@ -3,10 +3,7 @@ import {
   parseMultiLabel,
   joinMultiLabel,
   delimiterHasLabel,
-  propertyLabelSteps,
-  rewriteHasLabel,
   LABEL_DELIM,
-  HIDDEN_LABELS_KEY,
 } from "../../src/multilabel.js";
 
 // ===========================================================================
@@ -16,10 +13,6 @@ import {
 describe("constants", () => {
   it('LABEL_DELIM is "::"', () => {
     expect(LABEL_DELIM).toBe("::");
-  });
-
-  it('HIDDEN_LABELS_KEY is "__labels"', () => {
-    expect(HIDDEN_LABELS_KEY).toBe("__labels");
   });
 });
 
@@ -159,64 +152,3 @@ describe("delimiterHasLabel", () => {
   });
 });
 
-// ===========================================================================
-// propertyLabelSteps
-// ===========================================================================
-
-describe("propertyLabelSteps", () => {
-  it('returns steps for "A::B"', () => {
-    expect(propertyLabelSteps("A::B")).toEqual([
-      { key: "__labels", value: "A" },
-      { key: "__labels", value: "B" },
-    ]);
-  });
-
-  it('returns single step for "A" (no delimiter)', () => {
-    expect(propertyLabelSteps("A")).toEqual([{ key: "__labels", value: "A" }]);
-  });
-
-  it("returns steps for triple label", () => {
-    expect(propertyLabelSteps("Person::Employee::Manager")).toEqual([
-      { key: "__labels", value: "Person" },
-      { key: "__labels", value: "Employee" },
-      { key: "__labels", value: "Manager" },
-    ]);
-  });
-
-  it("returns empty array for empty string", () => {
-    expect(propertyLabelSteps("")).toEqual([]);
-  });
-});
-
-// ===========================================================================
-// rewriteHasLabel
-// ===========================================================================
-
-describe("rewriteHasLabel", () => {
-  describe("property strategy", () => {
-    it("rewrites to has(__labels, label)", () => {
-      const result = rewriteHasLabel("property", "Person");
-      expect(result).toEqual({ type: "has", args: ["__labels", "Person"] });
-    });
-
-    it("uses __labels for any label", () => {
-      const result = rewriteHasLabel("property", "Employee");
-      expect(result.type).toBe("has");
-      expect(result.args[0]).toBe("__labels");
-      expect(result.args[1]).toBe("Employee");
-    });
-  });
-
-  describe("delimiter strategy", () => {
-    it("returns hasLabel unchanged", () => {
-      const result = rewriteHasLabel("delimiter", "Person");
-      expect(result).toEqual({ type: "hasLabel", args: ["Person"] });
-    });
-
-    it("preserves the label argument", () => {
-      const result = rewriteHasLabel("delimiter", "Employee");
-      expect(result.type).toBe("hasLabel");
-      expect(result.args[0]).toBe("Employee");
-    });
-  });
-});
