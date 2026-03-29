@@ -1,6 +1,7 @@
 import org.apache.tinkerpop.gremlin.process.traversal.*
 import org.apache.tinkerpop.gremlin.process.traversal.step.*
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.*
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.*
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.*
 import org.apache.tinkerpop.gremlin.process.traversal.strategy.*
 import org.apache.tinkerpop.gremlin.process.traversal.util.*
@@ -8,8 +9,11 @@ import org.apache.tinkerpop.gremlin.structure.T
 import org.apache.tinkerpop.gremlin.structure.Element
 
 /**
- * Server-side TraversalStrategy that rewrites hasLabel() to match Neptune's
- * multi-label :: delimiter semantics. Works for ALL clients (Python, Java, JS).
+ * Server-side TraversalStrategy that applies Neptune semantics to TinkerGraph.
+ * Works for ALL clients (Python, Java, JS, Gremlin Console).
+ *
+ * 1. Multi-label: hasLabel("A") matches "A::B::C" vertices
+ * 2. Auto-UUID: addV() without T.id gets a UUID string ID (like Neptune)
  */
 class NeptuneMultiLabelStrategy extends AbstractTraversalStrategy<TraversalStrategy.DecorationStrategy> {
 
@@ -26,6 +30,23 @@ class NeptuneMultiLabelStrategy extends AbstractTraversalStrategy<TraversalStrat
 
     @Override
     void apply(Traversal.Admin traversal) {
+        // --- Auto-UUID for addV() without explicit T.id ---
+        // Neptune auto-generates UUID string IDs. TinkerGraph generates numeric Longs
+        // that the JS driver can't look up. Inject a UUID when no T.id is specified.
+        for (def step : TraversalHelper.getStepsOfClass(AddVertexStartStep.class, traversal)) {
+            def params = step.getParameters()
+            if (!params.contains(T.id)) {
+                step.configure(T.id, UUID.randomUUID().toString())
+            }
+        }
+        for (def step : TraversalHelper.getStepsOfClass(AddVertexStep.class, traversal)) {
+            def params = step.getParameters()
+            if (!params.contains(T.id)) {
+                step.configure(T.id, UUID.randomUUID().toString())
+            }
+        }
+
+        // --- Multi-label hasLabel() rewriting ---
         def replacements = []
 
         def steps = TraversalHelper.getStepsOfClass(HasStep.class, traversal)

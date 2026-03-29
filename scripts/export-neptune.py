@@ -77,12 +77,16 @@ def connect(endpoint: str, signing_host: str | None = None) -> object:
 
 def export_graph(g, org_id: str | None = None) -> dict:
     """Export all vertices and edges to the import format."""
+    import time
 
     # Query vertices
+    print("  Querying vertices...", flush=True)
+    t0 = time.time()
     v_query = g.V()
     if org_id:
         v_query = v_query.hasLabel(org_id)
     raw_vertices = v_query.elementMap().toList()
+    print(f"  Fetched {len(raw_vertices)} vertices ({time.time() - t0:.1f}s)", flush=True)
 
     vertices = []
     for v in raw_vertices:
@@ -102,11 +106,14 @@ def export_graph(g, org_id: str | None = None) -> dict:
         vertices.append(vertex)
 
     # Query edges
+    print("  Querying edges...", flush=True)
+    t0 = time.time()
     e_query = g.E()
     if org_id:
         # Filter edges connected to org vertices
         e_query = g.V().hasLabel(org_id).bothE()
     raw_edges = e_query.elementMap().toList()
+    print(f"  Fetched {len(raw_edges)} edges ({time.time() - t0:.1f}s)", flush=True)
 
     edges = []
     seen_edge_ids = set()
@@ -140,15 +147,16 @@ def main():
     parser.add_argument("--output", "-o", default="neptune-export.json", help="Output JSON file path")
     args = parser.parse_args()
 
-    print(f"Connecting to {args.endpoint}...")
+    print(f"Connecting to {args.endpoint}...", flush=True)
     if args.signing_host:
-        print(f"SigV4 signing host: {args.signing_host}")
+        print(f"SigV4 signing host: {args.signing_host}", flush=True)
     g, conn = connect(args.endpoint, args.signing_host)
+    print("Connected.", flush=True)
 
-    print(f"Exporting graph data{' for org ' + args.org_id if args.org_id else ''}...")
+    print(f"Exporting graph data{' for org ' + args.org_id if args.org_id else ''}...", flush=True)
     data = export_graph(g, args.org_id)
 
-    print(f"Found {len(data['vertices'])} vertices, {len(data['edges'])} edges")
+    print(f"Found {len(data['vertices'])} vertices, {len(data['edges'])} edges", flush=True)
 
     with open(args.output, "w") as f:
         json.dump(data, f, indent=2, default=str)
