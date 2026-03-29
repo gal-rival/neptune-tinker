@@ -132,6 +132,7 @@ def export_graph(g, org_id: str | None = None, limit: int | None = None) -> dict
         raw_edges = raw_edges[:limit]
     print(f"  Total: {len(raw_edges)} edges ({time.time() - t0:.1f}s)", flush=True)
 
+    vertex_ids = {v["id"] for v in vertices}
     edges = []
     seen_edge_ids = set()
     for e in raw_edges:
@@ -140,11 +141,18 @@ def export_graph(g, org_id: str | None = None, limit: int | None = None) -> dict
             continue  # deduplicate (bothE produces duplicates)
         seen_edge_ids.add(eid)
 
+        out_v = str(e["OUT_V"] if "OUT_V" in e else e.get("outV", ""))
+        in_v = str(e["IN_V"] if "IN_V" in e else e.get("inV", ""))
+
+        # Skip edges referencing vertices we didn't export
+        if out_v not in vertex_ids or in_v not in vertex_ids:
+            continue
+
         edge = {
             "id": eid,
             "label": str(e["label"]),
-            "outV": str(e["OUT_V"] if "OUT_V" in e else e.get("outV", "")),
-            "inV": str(e["IN_V"] if "IN_V" in e else e.get("inV", "")),
+            "outV": out_v,
+            "inV": in_v,
             "properties": {},
         }
         for key, value in e.items():
