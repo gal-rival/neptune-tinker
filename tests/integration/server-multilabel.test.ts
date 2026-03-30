@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import gremlin from "gremlin";
+// @ts-expect-error — no types for internal module
+import { SubgraphStrategy } from "gremlin/lib/process/traversal-strategy.js";
 import { isDockerAvailable } from "./helpers.js";
 
 const { driver, process: gprocess } = gremlin;
-const { t, P } = gprocess;
+const { t, P, statics } = gprocess;
 
 const dockerAvailable = await isDockerAvailable();
 
@@ -152,10 +154,10 @@ describe.skipIf(!dockerAvailable)("server-side multi-label strategy (no JS middl
   });
 
   // =========================================================================
-  // Multi-tenant SubgraphStrategy simulation
+  // Multi-tenant scoping via chained hasLabel
   // =========================================================================
 
-  describe("multi-tenant scoping via hasLabel (SubgraphStrategy pattern)", () => {
+  describe("multi-tenant scoping via chained hasLabel", () => {
     beforeEach(async () => {
       await g.addV("tenant-a::Finding").property(t.id, "a-f1").property("severity", "CRITICAL").next();
       await g.addV("tenant-a::Repository").property(t.id, "a-r1").property("name", "repo-a").next();
@@ -173,10 +175,71 @@ describe.skipIf(!dockerAvailable)("server-side multi-label strategy (no JS middl
     });
 
     it("chaining hasLabel for tenant + type", async () => {
-      // Simulate: get all Findings for tenant-a
-      // In production: SubgraphStrategy scopes to tenant, then hasLabel("Finding")
       const results = await g.V().hasLabel("tenant-a").hasLabel("Finding").values("severity").toList();
       expect(results).toEqual(["CRITICAL"]);
+    });
+  });
+
+  // =========================================================================
+  // Real SubgraphStrategy with multi-label vertices
+  // =========================================================================
+
+  describe("SubgraphStrategy + multi-label interaction", () => {
+    beforeEach(async () => {
+      await g.addV("tenant-a::Finding").property(t.id, "a-f1").property("severity", "CRITICAL").next();
+      await g.addV("tenant-a::Repository").property(t.id, "a-r1").property("name", "repo-a").next();
+      await g.addV("tenant-b::Finding").property(t.id, "b-f1").property("severity", "LOW").next();
+      await g.addV("tenant-b::Repository").property(t.id, "b-r1").property("name", "repo-b").next();
+      await g.addE("FOUND_IN").from_(statics.V("a-f1")).to(statics.V("a-r1")).next();
+      await g.addE("FOUND_IN").from_(statics.V("b-f1")).to(statics.V("b-r1")).next();
+    });
+
+    it("SubgraphStrategy scopes vertices by multi-label component", async () => {
+      const scoped = g.withStrategies(
+        new SubgraphStrategy({ vertices: statics.hasLabel("tenant-a") })
+      );
+      const count = await scoped.V().count().next();
+      expect(count.value).toBe(2);
+    });
+
+    it("SubgraphStrategy + hasLabel narrows further by type", async () => {
+      const scoped = g.withStrategies(
+        new SubgraphStrategy({ vertices: statics.hasLabel("tenant-a") })
+      );
+      const results = await scoped.V().hasLabel("Finding").values("severity").toList();
+      expect(results).toEqual(["CRITICAL"]);
+    });
+
+    it("SubgraphStrategy hides vertices from other tenants", async () => {
+      const scoped = g.withStrategies(
+        new SubgraphStrategy({ vertices: statics.hasLabel("tenant-a") })
+      );
+      const ids = await scoped.V().id().toList();
+      expect(ids.sort()).toEqual(["a-f1", "a-r1"]);
+    });
+
+    it("SubgraphStrategy scoped edges only traverse within scope", async () => {
+      const scoped = g.withStrategies(
+        new SubgraphStrategy({ vertices: statics.hasLabel("tenant-a") })
+      );
+      const repos = await scoped.V().hasLabel("Finding").out("FOUND_IN").values("name").toList();
+      expect(repos).toEqual(["repo-a"]);
+    });
+
+    it("SubgraphStrategy with P.within multi-label filter", async () => {
+      const scoped = g.withStrategies(
+        new SubgraphStrategy({ vertices: statics.hasLabel(P.within("tenant-a", "tenant-b")) })
+      );
+      const count = await scoped.V().count().next();
+      expect(count.value).toBe(4); // all vertices match
+    });
+
+    it("SubgraphStrategy with type filter (not tenant)", async () => {
+      const scoped = g.withStrategies(
+        new SubgraphStrategy({ vertices: statics.hasLabel("Finding") })
+      );
+      const severities = await scoped.V().values("severity").toList();
+      expect(severities.sort()).toEqual(["CRITICAL", "LOW"]);
     });
   });
 
