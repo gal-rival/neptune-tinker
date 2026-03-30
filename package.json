@@ -32,6 +32,7 @@
     "sandbox:logs": "node bin/neptune-tinker.mjs logs",
     "sandbox:console": "node bin/neptune-tinker.mjs console",
     "sandbox:repl": "node bin/neptune-tinker.mjs repl",
+    "sandbox:run": "node bin/neptune-tinker.mjs run",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:unit": "vitest run tests/unit",

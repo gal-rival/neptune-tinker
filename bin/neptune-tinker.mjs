@@ -63,6 +63,26 @@ async function importCmd() {
   }
 }
 
+async function runCmd() {
+  const query = args.slice(1).join(" ");
+  if (!query) {
+    console.error('Usage: neptune-tinker run \'g.V().count()\'');
+    process.exit(1);
+  }
+
+  const gremlin = (await import("gremlin")).default;
+  const p = resolvedPort || "8182";
+  const client = new gremlin.driver.Client(`ws://localhost:${p}/gremlin`, {});
+  try {
+    const result = await client.submit(query);
+    const items = result.toArray();
+    for (const item of items) console.log(JSON.stringify(item, null, 2));
+    if (items.length === 0) console.log("(empty)");
+  } finally {
+    await client.close();
+  }
+}
+
 const commands = {
   start: () => {
     run(compose("up -d --wait"));
@@ -75,6 +95,7 @@ const commands = {
   console: () => run(compose("run --rm gremlin-console")),
   repl: () => run(`node "${join(root, "scripts", "repl.mjs")}"`),
   import: () => importCmd(),
+  run: () => runCmd(),
 };
 
 if (!command || !commands[command]) {
@@ -89,6 +110,7 @@ Commands:
   console   Open Gremlin Console (raw Gremlin, auto-connected)
   repl      Open Node.js REPL with middleware loaded
   import    Import data from JSON file: neptune-tinker import <file.json>
+  run       Execute a Gremlin query: neptune-tinker run 'g.V().count()'
 
 Options:
   --port <port>    Use a custom port (default: 8182)
