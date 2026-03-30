@@ -63,8 +63,31 @@ async function importCmd() {
   }
 }
 
+function serialize(value) {
+  if (value instanceof Map) {
+    const obj = {};
+    for (const [k, v] of value) obj[String(k)] = serialize(v);
+    return obj;
+  }
+  if (Array.isArray(value)) return value.map(serialize);
+  if (value && typeof value === "object" && value.constructor?.name === "Vertex") {
+    return { id: value.id, label: value.label };
+  }
+  if (value && typeof value === "object" && value.constructor?.name === "Edge") {
+    return { id: value.id, label: value.label, outV: value.outV?.id, inV: value.inV?.id };
+  }
+  return value;
+}
+
 async function runCmd() {
-  const query = args.slice(1).join(" ");
+  // Get query — skip flags (--port, --name, --no-persist and their values)
+  const queryArgs = [];
+  for (let i = 1; i < args.length; i++) {
+    if (args[i] === "--port" || args[i] === "--name") { i++; continue; }
+    if (args[i] === "--no-persist") continue;
+    queryArgs.push(args[i]);
+  }
+  const query = queryArgs.join(" ");
   if (!query) {
     console.error('Usage: neptune-tinker run \'g.V().count()\'');
     process.exit(1);
@@ -76,7 +99,7 @@ async function runCmd() {
   try {
     const result = await client.submit(query);
     const items = result.toArray();
-    for (const item of items) console.log(JSON.stringify(item, null, 2));
+    for (const item of items) console.log(JSON.stringify(serialize(item), null, 2));
     if (items.length === 0) console.log("(empty)");
   } finally {
     await client.close();
