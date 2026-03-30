@@ -10,17 +10,33 @@ const root = join(__dirname, "..");
 const args = process.argv.slice(2);
 const command = args[0];
 
+import { createServer } from "node:net";
+
 // Parse flags
 const portIdx = args.indexOf("--port");
 const port = portIdx !== -1 ? args[portIdx + 1] : undefined;
+const nameIdx = args.indexOf("--name");
+const name = nameIdx !== -1 ? args[nameIdx + 1] : undefined;
 const noPersist = args.includes("--no-persist");
 
+// When --name is used without --port, find a free port to avoid collisions
+function findFreePort() {
+  return new Promise((resolve) => {
+    const srv = createServer();
+    srv.listen(0, () => { const p = srv.address().port; srv.close(() => resolve(p)); });
+  });
+}
+
+const resolvedPort = port || (name ? String(await findFreePort()) : undefined);
+
 const env = { ...process.env };
-if (port) env.NEPTUNE_TINKER_PORT = port;
+if (resolvedPort) env.NEPTUNE_TINKER_PORT = resolvedPort;
+if (name) env.NEPTUNE_TINKER_CONTAINER = name;
 if (noPersist) env.NEPTUNE_TINKER_PERSIST = "false";
 
 const composefile = join(root, "scripts", "docker-compose.yml");
-const compose = (cmd) => `docker compose -f "${composefile}" ${cmd}`;
+const projectName = name ? `-p ${name}` : "";
+const compose = (cmd) => `docker compose ${projectName} -f "${composefile}" ${cmd}`;
 
 function run(cmd, opts = {}) {
   execSync(cmd, { stdio: "inherit", env, ...opts });
@@ -48,7 +64,10 @@ async function importCmd() {
 }
 
 const commands = {
-  start: () => run(compose("up -d --wait")),
+  start: () => {
+    run(compose("up -d --wait"));
+    if (name) console.log(`Neptune sandbox "${name}" ready at ws://localhost:${resolvedPort}/gremlin`);
+  },
   stop: () => run(compose("down")),
   reset: () => { run(compose("down -v")); run(compose("up -d --wait")); },
   health: () => run(compose("ps")),
@@ -73,6 +92,7 @@ Commands:
 
 Options:
   --port <port>    Use a custom port (default: 8182)
+  --name <name>    Isolated sandbox instance name (separate container + volume)
   --no-persist     In-memory only, no data persistence (faster)`);
   process.exit(command ? 1 : 0);
 }
