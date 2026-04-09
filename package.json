@@ -1,5 +1,5 @@
 {
-  "name": "neptune-tinker",
+  "name": "@gal-rival/neptune-tinker",
   "version": "0.1.0",
   "description": "Neptune-compatible local sandbox using TinkerGraph. Claude-first dev tooling.",
   "license": "MIT",
@@ -47,6 +47,10 @@
     "@types/node": "^20.0.0",
     "typescript": "^5.5.0",
     "vitest": "^4.1.2"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
   },
   "files": [
     "dist",
