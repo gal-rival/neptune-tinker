@@ -5,7 +5,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/RivalSecurity/neptune-tinker.git"
+    "url": "https://github.com/gal-rival/neptune-tinker.git"
   },
   "engines": {
     "node": ">=18"
