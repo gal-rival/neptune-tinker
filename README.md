@@ -340,7 +340,6 @@ python scripts/export-neptune.py --endpoint your-neptune-endpoint --output data.
 
 ## Known Limitations
 
-- **Multi-label append not emulated.** In Neptune, `addV('Label2').property(id, 'existing-id')` appends a label. In TinkerGraph, it throws a duplicate ID error.
 - **Guard is text-based, not AST-based.** Regex patterns catch common issues but may miss edge cases in complex queries.
 - **Chained `addV().property(k,v).property(k,v)` dedup.** During vertex creation, TinkerGraph doesn't deduplicate properties set in the same traversal chain. On updates (`g.V(id).property(k,v)`), set cardinality works correctly.
 - **Session duration not enforced.** Neptune limits sessions to 10 minutes; the sandbox does not.
